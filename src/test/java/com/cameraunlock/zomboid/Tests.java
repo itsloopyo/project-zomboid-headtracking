@@ -132,6 +132,8 @@ public final class Tests {
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("lootPanelFollowsTheCrosshairOncePerThing", Tests::lootPanelFollowsTheCrosshairOncePerThing);
+        Checks.run("keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo", Tests::keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo);
+        Checks.run("heldInteractTakesAllFromAContainerWithSomethingInIt", Tests::heldInteractTakesAllFromAContainerWithSomethingInIt);
         Checks.run("transformerHasNoGapOnceEveryPatchIsIn", Tests::transformerHasNoGapOnceEveryPatchIsIn);
         Checks.run("exceptionTheGameCaughtFromTheModIsWrittenOnce", Tests::exceptionTheGameCaughtFromTheModIsWrittenOnce);
         Checks.run("exceptionWhoseCausesLoopIsLookedThroughOnce", Tests::exceptionWhoseCausesLoopIsLookedThroughOnce);
@@ -3357,6 +3359,41 @@ public final class Tests {
         check(!follow.asks(null, 1300 * ms) && follow.asks(fridge, 1400 * ms), "looking away and back at it asks again");
         follow.reset();
         check(follow.looking(1401 * ms) && follow.asks(fridge, 1401 * ms), "after a reset it looks and asks at once");
+    }
+
+    private static void keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo() {
+        KeptPanels kept = new KeptPanels();
+        check(kept.frame(false, true, false) == KeptPanels.Act.NONE && !kept.kept(), "with the option off nothing is asked of the panels");
+        check(kept.frame(true, true, false) == KeptPanels.Act.SHOW && kept.kept(), "the option coming on shows them");
+        kept.notShown();
+        check(!kept.kept() && kept.frame(true, true, false) == KeptPanels.Act.SHOW, "where the game had not made them, they are shown on the next frame");
+        check(kept.frame(true, true, false) == KeptPanels.Act.NONE, "and then left as they are while the look has the mouse");
+        check(kept.frame(true, false, false) == KeptPanels.Act.NONE && kept.frame(true, false, false) == KeptPanels.Act.NONE,
+                "with the pointer out they are the game's, folding as it folds them");
+        check(kept.frame(true, true, false) == KeptPanels.Act.SHOW, "the look taking the mouse back shows them again");
+        check(kept.frame(true, true, true) == KeptPanels.Act.FOLD, "aiming folds them");
+        check(kept.frame(true, true, true) == KeptPanels.Act.NONE, "once");
+        check(kept.frame(true, false, true) == KeptPanels.Act.NONE && kept.frame(true, true, true) == KeptPanels.Act.NONE,
+                "while the sights are up, the pointer going out and the look coming back do not show them");
+        check(kept.frame(true, true, false) == KeptPanels.Act.SHOW, "lowering the sights shows them again");
+        check(kept.frame(false, true, false) == KeptPanels.Act.LET_GO && !kept.kept(), "the option going off lets go of them");
+        check(kept.frame(false, true, false) == KeptPanels.Act.NONE, "once");
+        kept.frame(true, true, true);
+        kept.reset();
+        check(!kept.kept() && kept.frame(true, true, false) == KeptPanels.Act.SHOW, "after a reset, as on leaving the save, they are shown as from the start");
+        KeptPanels aimingFirst = new KeptPanels();
+        check(aimingFirst.frame(true, true, true) == KeptPanels.Act.SHOW && aimingFirst.frame(true, true, true) == KeptPanels.Act.FOLD,
+                "the option coming on while aiming shows them and then folds them for the sights");
+    }
+
+    private static void heldInteractTakesAllFromAContainerWithSomethingInIt() {
+        check(!ClickRules.takesAll(false, false), "a tap on a container shows it in the loot panel");
+        check(!ClickRules.takesAll(false, true), "an empty one too");
+        check(ClickRules.takesAll(true, false), "the key held on one with something in it takes all of it");
+        check(!ClickRules.takesAll(true, true), "held on an empty one, it shows it, as there is nothing to take");
+        check(InteractWords.line("E", "Loot Shelves", "Take All").equals("[E] Loot Shelves   [Hold E] Take All"), "the label says both, the key named from its binding");
+        check(InteractWords.line("E", "Loot Shelves", "Loot Shelves").equals("[E] Loot Shelves"), "and only the tap where holding does the same");
+        check(InteractWords.Does.TAKE_ALL.key.equals("IGUI_invpage_Loot_all") && !InteractWords.Does.TAKE_ALL.named, "in the loot panel's own words for its button");
     }
 
     private static byte[] subjectWithField(String name, ClassDesc type, int flags) {

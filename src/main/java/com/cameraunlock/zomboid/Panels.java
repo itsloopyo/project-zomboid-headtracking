@@ -214,43 +214,39 @@ final class Panels {
     private static final boolean[][] panelTroubleSaid = new boolean[View.COUNT][INVENTORY_PANELS.size()];
 
     /**
-     * For each player, which of the inventory and loot panels InventoryStaysOpen pinned, in
-     * INVENTORY_PANELS' order, so that only those are unpinned again as it lets go of them.
+     * Shows a player's inventory and loot panels unfolded (InventoryStaysOpen), and says whether
+     * the game gave both. The game folds a panel to its title bar a moment after the pointer
+     * leaves it, on a click outside it and while aiming, and unfolds it as the pointer comes
+     * over its title bar (ISInventoryPage.onMouseMove). While the look has the mouse the game's
+     * panels are told nothing of it (Hooks.uiBlind), so nothing folds them then, and they are
+     * unfolded here the way the pointer would. The player's own pin is never touched.
      */
-    private static final boolean[][] pinnedHere = new boolean[View.COUNT][INVENTORY_PANELS.size()];
-
-    /**
-     * Keeps a player's inventory and loot panels open on the screen (InventoryStaysOpen), or lets
-     * go of them. Unpinned, the game folds a panel to its title bar a moment after the pointer
-     * leaves it and on any click outside it, and with the mouse turning the view the pointer is
-     * always outside, so each is shown and pinned with its own pin button's call. Letting go
-     * unpins only the panels pinned here and still pinned, and leaves them on the screen as the
-     * game has them: a player who pinned one themselves keeps it pinned. Says whether the game
-     * gave both panels.
-     */
-    static boolean keepOpen(int playerIndex, boolean kept) {
+    static boolean showUnfolded(int playerIndex) {
         boolean both = true;
-        for (int i = 0; i < INVENTORY_PANELS.size(); i++) {
-            KahluaTable panel = inventoryPanel(INVENTORY_PANELS.get(i), playerIndex);
+        for (String function : INVENTORY_PANELS) {
+            KahluaTable panel = inventoryPanel(function, playerIndex);
             if (panel == null) {
                 both = false;
                 continue;
             }
-            boolean pinned = Boolean.TRUE.equals(panel.rawget("pin"));
-            if (kept) {
-                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, true);
-                if (!pinned) {
-                    callOn(panel, "setPinned", INVENTORY_PANELS.get(i), playerIndex);
-                    pinnedHere[playerIndex][i] = true;
-                }
-            } else {
-                if (pinnedHere[playerIndex][i] && pinned) {
-                    callOn(panel, "collapse", INVENTORY_PANELS.get(i), playerIndex);
-                }
-                pinnedHere[playerIndex][i] = false;
+            LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(panel, "setVisible"), panel, true);
+            if (Boolean.TRUE.equals(panel.rawget("isCollapsed"))) {
+                panel.rawset("isCollapsed", Boolean.FALSE);
+                panel.rawset("collapseCounter", Double.valueOf(0));
+                callOn(panel, "clearMaxDrawHeight", function, playerIndex);
             }
         }
         return both;
+    }
+
+    /** Folds a player's inventory and loot panels to their title bars as the game does while aiming, where they are not pinned. */
+    static void fold(int playerIndex) {
+        for (String function : INVENTORY_PANELS) {
+            KahluaTable panel = inventoryPanel(function, playerIndex);
+            if (panel != null && !Boolean.TRUE.equals(panel.rawget("pin"))) {
+                callOn(panel, "collapseNow", function, playerIndex);
+            }
+        }
     }
 
     /** Calls a method of a player's panel that takes nothing, and logs where the game's Lua raised an error in it. */
@@ -261,30 +257,87 @@ final class Panels {
         }
     }
 
-    /** The container a player's loot panel shows now, or null where there is no panel or it shows none. */
-    static ItemContainer lootShown(int playerIndex) {
-        KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
-        return loot != null && loot.rawget("inventoryPane") instanceof KahluaTable pane && pane.rawget("inventory") instanceof ItemContainer shown ? shown : null;
+    private static ItemContainer shown(KahluaTable loot) {
+        return loot.rawget("inventoryPane") instanceof KahluaTable pane && pane.rawget("inventory") instanceof ItemContainer shown ? shown : null;
+    }
+
+    /**
+     * Whether the game has a container among the buttons of a loot panel: the containers round
+     * the character it can reach, as its refreshBackpacks last found them.
+     */
+    private static boolean listed(KahluaTable loot, ItemContainer container) {
+        if (!(loot.rawget("backpacks") instanceof KahluaTable buttons)) {
+            return false;
+        }
+        for (int i = 1; i <= buttons.len(); i++) {
+            if (buttons.rawget(i) instanceof KahluaTable button && button.rawget("inventory") == container) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The troubles with the loot panel that are said once each, for each player. */
+    private enum Trouble { SELECT, FLOOR, REFRESH, TAKE_ALL }
+
+    /** Whether each trouble has been said for each player: the loot panel is asked after several times a second. */
+    private static final boolean[][] troubleSaid = new boolean[View.COUNT][Trouble.values().length];
+
+    private static void sayOnce(Trouble trouble, int playerIndex, String words) {
+        if (!troubleSaid[playerIndex][trouble.ordinal()]) {
+            troubleSaid[playerIndex][trouble.ordinal()] = true;
+            Log.info(words);
+        }
     }
 
     /**
      * Has a player's loot panel show a container, through the call its own buttons make, where
-     * the game has put it among the panel's buttons: those are the containers round the
-     * character that it can reach (ISInventoryPage.refreshBackpacks). Says whether the panel now
-     * shows it.
+     * the game has put it among the panel's buttons. Says whether the panel now shows it.
      */
     static boolean showInLoot(int playerIndex, ItemContainer container) {
         KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
         if (loot == null) {
             return false;
         }
-        Object select = inventoryPage("selectButtonForContainer");
-        Object[] done = select == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), select, loot, container);
-        if (done.length == 0 || !Boolean.TRUE.equals(done[0])) {
-            sayLuaTrouble("the game's ISInventoryPage.selectButtonForContainer failed, so the loot panel does not follow the look: " + Arrays.toString(done));
+        if (shown(loot) == container) {
+            return true;
+        }
+        if (!listed(loot, container) || !callPage(Trouble.SELECT, playerIndex, "selectButtonForContainer", loot, container)) {
             return false;
         }
-        return lootShown(playerIndex) == container;
+        return shown(loot) == container;
+    }
+
+    /**
+     * The game's Take All on a container, as its loot panel's button does it (ISInventoryPage.lootAll):
+     * the container is shown in the loot panel, made up to date first where the panel was not on the
+     * screen, and the game then walks the character to it where it has to and queues its own timed
+     * transfers, by its own weight rules. A panel that was not on the screen is taken off it again.
+     * Says whether the game was asked.
+     */
+    static boolean takeAll(int playerIndex, ItemContainer container) {
+        KahluaTable loot = inventoryPanel(LOOT_PANEL, playerIndex);
+        if (loot == null || !(loot.rawget("javaObject") instanceof UIElementInterface element)) {
+            return false;
+        }
+        boolean wasShown = element.isVisible();
+        try {
+            if (!wasShown) {
+                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, true);
+                if (!callPage(Trouble.REFRESH, playerIndex, "refreshBackpacks", loot)) {
+                    return false;
+                }
+            }
+            if (!showInLoot(playerIndex, container)) {
+                Log.info("Take All of player " + (playerIndex + 1) + " was not asked of the game: its loot panel does not list the " + container.getType());
+                return false;
+            }
+            return callPage(Trouble.TAKE_ALL, playerIndex, "lootAll", loot);
+        } finally {
+            if (!wasShown) {
+                LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, false);
+            }
+        }
     }
 
     /** The container the game's loot panel gathers what lies on the floor round a player into, or null where its Lua has none to give. */
@@ -294,24 +347,25 @@ final class Panels {
         if (found.length > 1 && Boolean.TRUE.equals(found[0]) && found[1] instanceof ItemContainer floor) {
             return floor;
         }
-        sayLuaTrouble("the game's ISInventoryPage.GetFloorContainer(" + playerIndex + ") gave no container, so the loot panel does not follow the look to the floor: "
+        sayOnce(Trouble.FLOOR, playerIndex, "the game's ISInventoryPage.GetFloorContainer(" + playerIndex + ") gave no container, so the loot panel does not follow the look to the floor: "
                 + Arrays.toString(found));
         return null;
+    }
+
+    /** Calls a function of the game's ISInventoryPage, and says once for each player and trouble where it is missing or raised an error. */
+    private static boolean callPage(Trouble trouble, int playerIndex, String function, Object... arguments) {
+        Object callee = inventoryPage(function);
+        Object[] done = callee == null ? new Object[0] : LuaManager.caller.pcall(UIManager.getDefaultThread(), callee, arguments);
+        if (done.length == 0 || !Boolean.TRUE.equals(done[0])) {
+            sayOnce(trouble, playerIndex, "the game's ISInventoryPage." + function + " failed for player " + (playerIndex + 1) + ": " + Arrays.toString(done));
+            return false;
+        }
+        return true;
     }
 
     /** A function of the game's ISInventoryPage, or null where its Lua has none. */
     private static Object inventoryPage(String function) {
         return LuaManager.env.rawget(INVENTORY_PAGE) instanceof KahluaTable page ? page.rawget(function) : null;
-    }
-
-    /** Whether trouble with the loot panel following the look has been logged: it is asked several times a second. */
-    private static boolean luaTroubleSaid;
-
-    private static void sayLuaTrouble(String trouble) {
-        if (!luaTroubleSaid) {
-            luaTroubleSaid = true;
-            Log.info(trouble);
-        }
     }
 
     /**

@@ -70,4 +70,12 @@ final class ClickRules {
         }
         return inReach ? Does.LOOT : walks ? Does.WALK_TO : null;
     }
+
+    /**
+     * Whether the key on a container within the click's reach takes all that is in it, as the loot
+     * panel's Take All does: held, and with something to take. Otherwise it shows the container.
+     */
+    static boolean takesAll(boolean held, boolean empty) {
+        return held && !empty;
+    }
 }

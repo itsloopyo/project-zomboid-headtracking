@@ -117,8 +117,8 @@ enum Part {
             "true: in first person, your inventory and the loot panel stay open on the screen while you look around. The loot\n"
                     + "panel shows the container, body or items on the ground the crosshair is on within reach, or with the crosshair\n"
                     + "on none of those, a body you stand over. The inventory key or a middle click brings the mouse pointer out to use\n"
-                    + "them, and the same again or Escape goes back to looking, leaving them open. false: they open with the\n"
-                    + "inventory key or Interact on a container, and close again as you go back to looking."),
+                    + "them, and the same again or Escape goes back to looking, with them open again. They fold while you aim.\n"
+                    + "false: they open with the inventory key or Interact on a container, and close again as you go back to looking."),
     FIGURES_BEHIND_WALLS("FirstPerson", "FiguresBehindWalls", true, false,
             "true: in first person, a zombie, person or animal against a wall, a shut door or a fence you cannot see through is\n"
                     + "not drawn reaching, leaning or poking through it to your side. false: they are drawn as the game poses them, so a\n"

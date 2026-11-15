@@ -851,6 +851,16 @@ public final class Agent {
                         new CallSite.Method(UI, "updateMouseButtons", "(II)I"),
                         new CallSite.Method("zombie/Lua/LuaEventManager", "triggerEvent", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"),
                         new CallSite.Method(HOOKS, "mouseButton", "(Ljava/lang/String;Ljava/lang/Object;Ljava/lang/Object;)V"), 4)),
+                // While the look has the mouse the game's panels are told nothing of it: see Hooks.uiBlind.
+                uiBlind("updateMouseButtons", "(II)I", "onMouseButtonDownOutside", "(IDD)V", "uiButtonDownOutside"),
+                uiBlind("updateMouseButtons", "(II)I", "onConsumeMouseButtonDown", "(IDD)Z", "uiConsumeButtonDown"),
+                uiBlind("updateMouseButtons", "(II)I", "onMouseButtonUpOutside", "(IDD)V", "uiButtonUpOutside"),
+                uiBlind("updateMouseButtons", "(II)I", "onConsumeMouseButtonUp", "(IDD)Z", "uiConsumeButtonUp"),
+                uiBlind("updateMouseMove", "(IIZ)Z", "isOverElement", "(DD)Z", "uiOverElement"),
+                uiBlind("updateMouseMove", "(IIZ)Z", "onConsumeMouseMove", "(DDDD)Ljava/lang/Boolean;", "uiConsumeMove"),
+                uiBlind("updateMouseMove", "(IIZ)Z", "onExtendMouseMoveOutside", "(DDDD)V", "uiMoveOutside"),
+                uiBlind("updateTooltip", "(DD)V", "isOverElement", "(DD)Z", "uiOverElement"),
+                uiBlind("update", "()V", "isPointOver", "(DD)Ljava/lang/Boolean;", "uiPointOver"),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
                 // Once where a right press reaches the object under the cursor and once where its release does.
@@ -2098,6 +2108,15 @@ public final class Agent {
     /** The game's reticle and aim cursor each read the screen position to draw at from one call, which names the player. */
     private static Patch reticle(String owner, String render, String descriptor, String read, String hook) {
         return instead(new CallSite.Method(owner, render, descriptor), new CallSite.Method(RETICLE, read, INT_FILTER), hook);
+    }
+
+    /** One call UIManager makes on a panel, in one of its methods, goes through a hook that takes the panel first (Hooks.uiBlind). */
+    private static Patch uiBlind(String within, String descriptor, String call, String callDescriptor, String hook) {
+        String element = "zombie/ui/UIElementInterface";
+        return new Patch(UI, within + " calling " + call, classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(UI, within, descriptor),
+                new CallSite.Method(element, call, callDescriptor),
+                new CallSite.Method(HOOKS, hook, "(L" + element + ";" + callDescriptor.substring(1)), 1));
     }
 
     /** Where the game has a player's aim on the screen is passed through a hook with the player's number. */

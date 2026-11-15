@@ -49,6 +49,7 @@ import zombie.iso.weather.ThunderStorm;
 import zombie.meta.Meta;
 import zombie.ui.TextDrawObject;
 import zombie.ui.TextManager;
+import zombie.ui.UIElementInterface;
 import zombie.ui.UIFont;
 import zombie.vehicles.BaseVehicle;
 
@@ -529,6 +530,63 @@ public final class Hooks {
     public static void mouseButton(String event, Object x, Object y) {
         LuaEventManager.triggerEvent(event, x, y);
         View.first().worldMenu.mouse(event, (Double) x, (Double) y);
+    }
+
+    /**
+     * Whether the game's panels are told nothing of the mouse: while the look has it, the cursor
+     * the game reads is held at a point ahead in the view (FirstPerson), which can lie over a panel
+     * the player cannot see it over. A click or a move there would reach that panel, and the game
+     * would fold an unpinned one on a click or a move outside it.
+     */
+    private static boolean uiBlind() {
+        View view = View.first();
+        return view.onMouse() && view.firstPerson.lookCaptured();
+    }
+
+    /** In place of UIManager telling a panel a mouse button went down outside it. */
+    public static void uiButtonDownOutside(UIElementInterface element, int button, double x, double y) {
+        if (!uiBlind()) {
+            element.onMouseButtonDownOutside(button, x, y);
+        }
+    }
+
+    /** In place of UIManager offering a panel a mouse button that went down. */
+    public static boolean uiConsumeButtonDown(UIElementInterface element, int button, double x, double y) {
+        return !uiBlind() && element.onConsumeMouseButtonDown(button, x, y);
+    }
+
+    /** In place of UIManager telling a panel a mouse button went up outside it. */
+    public static void uiButtonUpOutside(UIElementInterface element, int button, double x, double y) {
+        if (!uiBlind()) {
+            element.onMouseButtonUpOutside(button, x, y);
+        }
+    }
+
+    /** In place of UIManager offering a panel a mouse button that went up. */
+    public static boolean uiConsumeButtonUp(UIElementInterface element, int button, double x, double y) {
+        return !uiBlind() && element.onConsumeMouseButtonUp(button, x, y);
+    }
+
+    /** In place of UIManager asking whether the mouse is over a panel, for a move and for a tooltip. */
+    public static boolean uiOverElement(UIElementInterface element, double x, double y) {
+        return !uiBlind() && element.isOverElement(x, y);
+    }
+
+    /** In place of UIManager offering a panel a move of the mouse. */
+    public static Boolean uiConsumeMove(UIElementInterface element, double dx, double dy, double x, double y) {
+        return uiBlind() ? Boolean.FALSE : element.onConsumeMouseMove(dx, dy, x, y);
+    }
+
+    /** In place of UIManager telling a panel the mouse moved outside it. */
+    public static void uiMoveOutside(UIElementInterface element, double dx, double dy, double x, double y) {
+        if (!uiBlind()) {
+            element.onExtendMouseMoveOutside(dx, dy, x, y);
+        }
+    }
+
+    /** In place of UIManager asking whether the mouse is over a panel, for the wheel. */
+    public static Boolean uiPointOver(UIElementInterface element, double x, double y) {
+        return uiBlind() ? Boolean.FALSE : element.isPointOver(x, y);
     }
 
     /** Called where the game asks whether the player with the mouse is aiming before it hands a click to the object under the pointer. */

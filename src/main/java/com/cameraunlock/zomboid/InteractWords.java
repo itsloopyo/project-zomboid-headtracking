@@ -24,6 +24,8 @@ final class InteractWords {
         WALK_TO("ContextMenu_Walk_to", true),
         /** The loot panel, on a container by the title the panel gives it. */
         LOOT("IGUI_Controller_Loot", true),
+        /** The loot panel's Take All. */
+        TAKE_ALL("IGUI_invpage_Loot_all", false),
         /** A radio's or a television's window. */
         DEVICE_OPTIONS("IGUI_DeviceOptions", false),
         /** A workstation's window, which the game's controller prompt names by the workstation alone. */

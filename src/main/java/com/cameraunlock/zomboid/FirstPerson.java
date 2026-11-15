@@ -257,8 +257,8 @@ public final class FirstPerson {
     /** Logic frames in a row with no player at this view's number. */
     private int goneFor;
     private final PointerMode pointer = new PointerMode();
-    /** Whether the inventory and loot panels are kept open with the look (InventoryStaysOpen), and the loot panel following it. */
-    private boolean panelsKept;
+    /** The inventory and loot panels kept open with the look (InventoryStaysOpen), and the loot panel following it. */
+    private final KeptPanels keptPanels = new KeptPanels();
     private final LootFollow lootFollow = new LootFollow();
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
@@ -592,6 +592,10 @@ public final class FirstPerson {
         view.modeFade.giveBack("the save was left");
         giveBack("the save was left");
         coveredLastFrame = false;
+        // The game's panels go with the save: there is nothing left to show or fold.
+        keptPanels.reset();
+        pointer.keepPanels(false);
+        lootFollow.reset();
     }
 
     /** The view at load is owed again, and nothing is left of the vehicle the player was in or the hints of their landing. */
@@ -1162,9 +1166,10 @@ public final class FirstPerson {
         // the look is let go of as the sleep begins, while frames still come to let go of the mouse.
         active = landed && !GameTime.isGamePaused() && !player.isDead() && !player.isAsleep();
         if (!landed || !view.onMouse()) {
-            if (panelsKept) {
+            if (keptPanels.kept()) {
                 // Out of first person the panels are the game's again, on the screen as it has them.
-                keepPanels(false, false);
+                keptPanels.reset();
+                letGoOfPanels(false);
             }
             pointer.reset();
         } else if (active) {
@@ -1383,7 +1388,7 @@ public final class FirstPerson {
             IsoObject found = view.centreUse.under(reticleLine, floorUp, player, IsoWorld.instance.currentCell);
             view.centreUse.mark(found);
             label(player, found, now);
-            if (panelsKept && lootFollow.looking(now)) {
+            if (keptPanels.kept() && lootFollow.looking(now)) {
                 followLoot(player, found, now);
             }
         } else {
@@ -2398,9 +2403,6 @@ public final class FirstPerson {
             GameKeyboard.eatKeyPress(ESCAPE_KEY);
         }
         String was = TRACE ? pointer.describe() : null;
-        if (Part.INVENTORY_STAYS_OPEN.on() != panelsKept) {
-            keepPanels(!panelsKept, !pointer.byKey());
-        }
         int panels = Panels.open(view.index);
         long now = System.nanoTime();
         if (aimButton) {
@@ -2413,28 +2415,45 @@ public final class FirstPerson {
         if (inventoryPanels != PointerMode.Inventory.LEAVE) {
             Panels.showInventory(view.index, inventoryPanels == PointerMode.Inventory.OPEN);
         }
+        keepPanels(view.player());
         if (TRACE && !was.equals(pointer.describe())) {
             Log.info("pointer " + pointer.describe());
         }
     }
 
     /**
-     * Keeps the inventory and loot panels open with the look (InventoryStaysOpen), or lets go of
-     * them, and hides them as letting go where hide says: in first person with the pointer not
-     * out for the inventory, where they would be closed without the option. Where the game has
-     * not made a panel yet, keeping them open is tried again on the next frame.
+     * Keeps the inventory and loot panels open with the look (InventoryStaysOpen), as KeptPanels
+     * says for this frame. Where the game has not made both panels yet, they are shown on the next.
      */
-    private void keepPanels(boolean kept, boolean hide) {
-        if (!Panels.keepOpen(view.index, kept) && kept) {
-            return;
+    private void keepPanels(IsoPlayer player) {
+        boolean was = keptPanels.kept();
+        switch (keptPanels.frame(Part.INVENTORY_STAYS_OPEN.on(), !pointer.on(), player.isAiming())) {
+            case SHOW -> {
+                if (!Panels.showUnfolded(view.index)) {
+                    keptPanels.notShown();
+                } else if (!was) {
+                    pointer.keepPanels(true);
+                    lootFollow.reset();
+                    Log.info("the inventory and loot panels of player " + (view.index + 1) + " are kept open in first person");
+                }
+            }
+            case FOLD -> Panels.fold(view.index);
+            case LET_GO -> letGoOfPanels(!pointer.byKey());
+            case NONE -> { }
         }
-        panelsKept = kept;
-        pointer.keepPanels(kept);
+    }
+
+    /**
+     * The panels are the game's again, and hidden where hide says: in first person with the
+     * pointer not out for the inventory, where they would be closed without the option.
+     */
+    private void letGoOfPanels(boolean hide) {
+        pointer.keepPanels(false);
         lootFollow.reset();
-        if (!kept && hide) {
+        if (hide) {
             Panels.showInventory(view.index, false);
         }
-        Log.info("the inventory and loot panels of player " + (view.index + 1) + (kept ? " are kept open in first person" : " are no longer kept open"));
+        Log.info("the inventory and loot panels of player " + (view.index + 1) + " are no longer kept open");
     }
 
     /**
@@ -2466,7 +2485,11 @@ public final class FirstPerson {
         }
     }
 
-    /** The container of a person's body on the character's square, or null. The game lists no animal's in the loot panel. */
+    /**
+     * The container of a person's body on the character's square, or null, found as the game's
+     * loot panel finds it (ISInventoryPage.refreshBackpacks): it lists what lies there with a
+     * container in order, and stops at the first animal's body.
+     */
     private static ItemContainer bodyUnderfoot(IsoPlayer player) {
         IsoGridSquare square = player.getCurrentSquare();
         if (square == null) {
@@ -2474,7 +2497,10 @@ public final class FirstPerson {
         }
         java.util.ArrayList<IsoMovingObject> lying = square.getStaticMovingObjects();
         for (int i = 0; i < lying.size(); i++) {
-            if (lying.get(i) instanceof IsoDeadBody body && !body.isAnimal() && body.getContainer() != null) {
+            if (lying.get(i) instanceof IsoDeadBody body && body.getContainer() != null) {
+                if (body.isAnimal()) {
+                    return null;
+                }
                 return body.getContainer();
             }
         }
@@ -2488,6 +2514,19 @@ public final class FirstPerson {
     boolean climbableAtCentre() {
         IsoPlayer player = view.player();
         return !keyRefused(player) && player.getVehicle() == null && reticleOnScreen && (CentreUse.climbable(centre(player), player) || hopAtCentre(true) != null);
+    }
+
+    /**
+     * Whether the reticle is on a container within reach with something in it, for which the key
+     * waits to see if it is held: held, it takes all of it (CentreUse.Route.TAKE_ALL).
+     */
+    boolean lootableAtCentre() {
+        IsoPlayer player = view.player();
+        if (keyRefused(player) || player.getVehicle() != null || !reticleOnScreen) {
+            return false;
+        }
+        CentreUse.Use use = keyUse(player, centre(player), true, null);
+        return use != null && use.route() == CentreUse.Route.TAKE_ALL;
     }
 
     /** What the key would act on at the reticle, or null (CentreUse.under). */
@@ -2534,7 +2573,8 @@ public final class FirstPerson {
     /**
      * Called as the Interact key goes down with the mouse turning the view: acts on what the
      * last picture drew under the reticle, and says whether anything was there for it. Held
-     * (climb), it climbs through the window or the hole the reticle is on. In a vehicle the key
+     * (climb), it climbs through the window or the hole the reticle is on, or takes all that is in
+     * the container it is on. In a vehicle the key
      * is the game's, which gets out with it.
      */
     boolean useAtCentre(boolean climb) {
@@ -2543,7 +2583,13 @@ public final class FirstPerson {
             return false;
         }
         IsoObject found = centre(player);
-        CentreUse.Use use = keyUse(player, found, climb, climb && !CentreUse.climbable(found, player) ? hopAtCentre(true) : null);
+        CentreUse.Use use = keyUse(player, found, climb, null);
+        if (climb && !CentreUse.climbable(found, player) && (use == null || use.route() != CentreUse.Route.TAKE_ALL)) {
+            HoleHop.Hop hop = hopAtCentre(true);
+            if (hop != null) {
+                use = keyUse(player, found, true, hop);
+            }
+        }
         if (use != null && use.route() == CentreUse.Route.HOLE) {
             HoleHop.go(player, use.hop());
             return true;
@@ -2588,7 +2634,9 @@ public final class FirstPerson {
         }
         boolean window = CentreUse.climbable(found, player);
         HoleHop.Hop hop = window ? null : hopAtCentre(false);
-        view.interactLabel.update(tap, window || hop != null ? keyUse(player, found, true, hop) : null, player, now);
+        CentreUse.Use hold = window || hop != null ? keyUse(player, found, true, hop)
+                : tap != null && tap.route() == CentreUse.Route.CONTAINER ? keyUse(player, found, true, null) : null;
+        view.interactLabel.update(tap, hold, player, now);
     }
 
     /**

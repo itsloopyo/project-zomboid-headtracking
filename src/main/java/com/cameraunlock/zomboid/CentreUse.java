@@ -181,6 +181,8 @@ final class CentreUse {
         RELEASE,
         /** The game's click on a container within its reach, which puts it in the loot panel. */
         CONTAINER,
+        /** The loot panel's Take All on a container within the click's reach, for the key held on one with something in it. */
+        TAKE_ALL,
         /** A climb through a hole (HoleHop). */
         HOLE,
         /** The world menu for something standing within reach (standingFor), opened at the reticle. */
@@ -204,7 +206,8 @@ final class CentreUse {
      * What a press would do with the reticle on found (under): what act then does.
      *
      * @param pointer whether the player has a pointer to work a container's panels with
-     * @param climb   whether the key is held, which climbs through a window that can be climbed through instead of opening or shutting it
+     * @param climb   whether the key is held, which climbs through a window that can be climbed through instead of opening or
+     *                shutting it, and takes all that is in a container instead of showing it
      * @return null where the key is left to the game
      */
     Use decide(IsoObject found, ViewCamera.Pose view, float floorUp, IsoPlayer player, boolean pointer, boolean climb) {
@@ -258,7 +261,9 @@ final class CentreUse {
         // half the view is on is the one shown.
         ItemContainer shown = found.getContainerCount() >= 2
                 ? found.getContainerByIndex(above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0) : found.getContainer();
-        return new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
+        return ClickRules.takesAll(climb, shown.getItems().isEmpty())
+                ? new Use(Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, shown, null)
+                : new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
     }
 
     /**
@@ -432,6 +437,10 @@ final class CentreUse {
                 }
                 // The panels are up whether or not the click took, and the pointer is wanted for them.
                 return Outcome.CONTAINER;
+            }
+            case TAKE_ALL -> {
+                // The loot panel's own button: the game walks the character over where it has to and queues its timed transfers.
+                return Panels.takeAll(player.getIndex(), use.container()) ? Outcome.USED : Outcome.NOTHING;
             }
             default -> throw new IllegalArgumentException("CentreUse does not act on " + use.route());
         }
