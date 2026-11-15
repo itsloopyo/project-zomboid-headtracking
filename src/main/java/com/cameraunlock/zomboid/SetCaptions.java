@@ -11,7 +11,6 @@ import zombie.IndieGL;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
 import zombie.chat.ChatElement;
-import zombie.core.opengl.GLState;
 import zombie.core.properties.PropertyContainer;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoGridSquare;
@@ -93,17 +92,17 @@ final class SetCaptions {
         int squareX = square.getX(), squareY = square.getY(), z = square.getZ();
         IsoSprite sprite = set.getSprite();
         // The model the mod has of the set, whether it draws it or the game's sprite (Own.furniture), which the models are made to match.
-        Furniture piece = sprite == null ? null : Furniture.known(sprite);
+        Furniture piece = Furniture.known(sprite);
         float atX, atY, top;
         if (piece != null) {
             atX = squareX + piece.centreX;
             atY = squareY + piece.centreY;
             top = top(piece, set.getRenderYOffset());
         } else {
-            PropertyContainer own = sprite == null ? null : sprite.getProperties();
+            PropertyContainer own = sprite.getProperties();
             atX = squareX + 0.5f;
             atY = squareY + 0.5f;
-            top = spriteTop(own != null && own.has("IsTableTop"), own == null ? 0 : Surfaces.surface(own), set.getRenderYOffset(), set instanceof IsoTelevision);
+            top = spriteTop(own.has("IsTableTop"), Surfaces.surface(own), set.getRenderYOffset(), set instanceof IsoTelevision);
         }
         // The floor under the square as FurnishingBuilder stands a piece on it: the mean of its corners' heights.
         float floor = (view.worldScene.terrain.lift(squareX, squareY, z) + view.worldScene.terrain.lift(squareX + 1, squareY, z)
@@ -146,6 +145,9 @@ final class SetCaptions {
             if (model.surface[vertex] != Models.METAL) {
                 top = Math.max(top, model.vertices[vertex * Models.VERTEX_FLOATS + 2]);
             }
+        }
+        if (top == Float.NEGATIVE_INFINITY) {
+            throw new IllegalStateException("the model " + model.name + " is all metal, and has no body to write a set's lines over");
         }
         BODY_TOPS.put(model, top);
         return top;
@@ -202,7 +204,7 @@ final class SetCaptions {
         boolean done = false;
         try {
             Object[] all = (Object[]) Chat.PLAYER_LINES.get(lines);
-            if (playerIndex >= all.length || !Chat.SHOWING.getBoolean(lines)) {
+            if (playerIndex >= all.length || !lines.getHasChatToDisplay()) {
                 done = true;
                 return;
             }
@@ -260,26 +262,13 @@ final class SetCaptions {
 
     /**
      * Called once the game has written its own lines over the picture: writes the lines kept to be
-     * written low, each over the game's backdrop where it has one, as PlayerLines.render does, and
-     * puts back the blend the backdrop was drawn with.
+     * written low, each over the game's backdrop where it has one, as PlayerLines.render does.
      */
     void writeKept(int playerIndex) {
         if (kept == 0) {
             return;
         }
         boolean backdrop = ChatElement.doBackDrop && ChatElement.backdropTexture != null;
-        int a = 0, b = 0, c = 0, d = 0;
-        if (backdrop) {
-            try {
-                Object blending = Chat.BLEND_NOW.get(GLState.BlendFuncSeparate);
-                a = Chat.BLEND_A.getInt(blending);
-                b = Chat.BLEND_B.getInt(blending);
-                c = Chat.BLEND_C.getInt(blending);
-                d = Chat.BLEND_D.getInt(blending);
-            } catch (IllegalAccessException failure) {
-                throw new IllegalStateException("the game's GLState refused the mod a field it had made readable", failure);
-            }
-        }
         int x = IsoCamera.getScreenWidth(playerIndex) / 2;
         for (int i = 0; i < kept; i++) {
             TextDrawObject line = keptLine[i];
@@ -292,40 +281,30 @@ final class SetCaptions {
             }
             keptLine[i] = null;
         }
-        if (backdrop) {
-            IndieGL.glBlendFuncSeparate(a, b, c, d);
-        }
         kept = 0;
         lowY = NONE;
     }
 
-    /** The fields a ChatElement keeps its lines in and the game's blend is read from, found together, all or none: Links has checked at the start that the game has each. */
+    /** The fields a ChatElement keeps its lines in, found together, all or none: Links has checked at the start that the game has each. */
     private static final class Chat {
-        static final Field PLAYER_LINES, HISTORY, SHOWING, WRITTEN, SHOWN_FOR, BLEND_NOW, BLEND_A, BLEND_B, BLEND_C, BLEND_D;
+        static final Field PLAYER_LINES, HISTORY, WRITTEN, SHOWN_FOR;
 
         static {
-            Field[] found = new Field[10];
+            Field[] found = new Field[4];
             try {
                 ClassLoader game = ChatElement.class.getClassLoader();
-                Links.Field[] wanted = {Links.CHAT_PLAYER_LINES, Links.CHAT_HISTORY, Links.CHAT_SHOWING, Links.CHAT_WRITTEN, Links.CHAT_SHOWN_FOR,
-                    Links.BLEND_NOW, Links.BLEND_A, Links.BLEND_B, Links.BLEND_C, Links.BLEND_D};
+                Links.Field[] wanted = {Links.CHAT_PLAYER_LINES, Links.CHAT_HISTORY, Links.CHAT_WRITTEN, Links.CHAT_SHOWN_FOR};
                 for (int i = 0; i < wanted.length; i++) {
                     found[i] = Class.forName(wanted[i].owner().replace('/', '.'), false, game).getDeclaredField(wanted[i].name());
                     found[i].setAccessible(true);
                 }
             } catch (ReflectiveOperationException failure) {
-                throw new IllegalStateException("the game has not the fields this build of the mod writes a radio's lines with", failure);
+                throw new IllegalStateException("the game's ChatElement has not the fields this build of the mod writes a radio's lines with", failure);
             }
             PLAYER_LINES = found[0];
             HISTORY = found[1];
-            SHOWING = found[2];
-            WRITTEN = found[3];
-            SHOWN_FOR = found[4];
-            BLEND_NOW = found[5];
-            BLEND_A = found[6];
-            BLEND_B = found[7];
-            BLEND_C = found[8];
-            BLEND_D = found[9];
+            WRITTEN = found[2];
+            SHOWN_FOR = found[3];
         }
     }
 

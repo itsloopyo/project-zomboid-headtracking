@@ -1495,9 +1495,8 @@ public final class Hooks {
                 if (!setCaptionsOff(thrown)) {
                     throw thrown;
                 }
-                // The game writes this frame's speech, the radio's lines with it, as it does without the mod.
-                speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
-                return;
+                // This frame's speech is written as with CaptionsOverSets off: by the game, the radio's lines with it, or not at all under NameTagsAtHeads.
+                carried = false;
             }
         }
         if (!Part.NAME_TAGS_AT_HEADS.running()) {
