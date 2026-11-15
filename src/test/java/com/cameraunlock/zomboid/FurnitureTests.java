@@ -887,7 +887,7 @@ final class FurnitureTests {
     }
 
     private static void eachBookOnAShelfIsAPieceOfItsOwnInBothModels() {
-        Models.Model bookcase = Models.get("bookcase");
+        Models.Model bookcase = Models.get(ShopFittings.BOOKCASE.many());
         java.util.Set<Integer> whole = null;
         for (Models.Model shape : new Models.Model[] {bookcase, bookcase.plain}) {
             int from = shape.first[Models.BOOKS], to = shape.first[Models.BOOKS + 1];
@@ -908,8 +908,9 @@ final class FurnitureTests {
             }
             check(faces, "the three corners of a face of a book are on one piece");
             check(corners, "and the faces that meet at a corner of it are on the same one, so a book is one colour all over");
-            // Two books may be told by the same number, as two spines may be the same colour.
-            check(pieces.size() > 50, "a bookcase holds many books of many colours, and had " + pieces.size());
+            // Two books may be told by the same number, as two spines may be the same colour. A full bookcase's books are
+            // spread over the books, vinyl, linen and cloth surfaces: these are the ones on books.
+            check(pieces.size() > 25, "a full bookcase holds many books of many colours, and had " + pieces.size());
             if (whole == null) {
                 whole = pieces;
             } else {

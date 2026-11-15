@@ -80,8 +80,8 @@ final class WallObjects {
         }
         // A shop's shelves on its wall, the lower board's foot under it on its brackets.
         if (called.equals("Shelves") && (group.equals("Beige Wall Shop") || group.equals("Zippee Wall")) && single) {
-            return new Furniture(sprite, group.equals("Zippee Wall") ? "zippee_wall_shelves" : "shop_wall_shelves", turns).stand(0f, 0f, true)
-                    .raise(SHOP_SHELF_FOOT).dyeAtBack(1 << Models.PAINT, SHOP_SHELF_DYE);
+            return ShopFittings.stocked(new Furniture(sprite, group.equals("Zippee Wall") ? "zippee_wall_shelves" : "shop_wall_shelves", turns)
+                    .stand(0f, 0f, true).raise(SHOP_SHELF_FOOT).dyeAtBack(1 << Models.PAINT, SHOP_SHELF_DYE));
         }
         // A clothes shop's rails on its wall, the lower board's foot under it.
         if (called.equals("Shelves") && group.equals("Clothing Shop") && single) {

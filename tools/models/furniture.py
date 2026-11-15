@@ -946,20 +946,6 @@ def bookcase():
     for z in shelves:
         cuboid(body, -half + 0.014, half - 0.014, front + 0.006, back - 0.012, z - 0.025, z)
     model.hard(body, "wood", bevel=0.004, segments=1)
-
-    books = bmesh.new()
-    pick = random.Random(7)
-    for row, z in enumerate(shelves):
-        x = -half + 0.022
-        full = half - 0.03 if row % 2 else half - 0.03 - pick.uniform(0.12, 0.3)
-        while True:
-            wide, tall, deep = pick.uniform(0.022, 0.05), pick.uniform(0.19, 0.31), pick.uniform(0.15, 0.22)
-            if x + wide > full:
-                break
-            set_back = pick.uniform(0.02, 0.045)
-            cuboid(books, x, x + wide - 0.002, front + set_back, front + set_back + deep, z, z + tall)
-            x += wide
-    model.plain(books, "books")
     return model
 
 
@@ -7894,6 +7880,106 @@ def deposit_boxes():
     return model
 
 
+# The shelves a house or a shop has that Furniture and its kin model, and what the game paints them holding: for each,
+# its boards as (top, the room over it, front, back), x from x0 to x1 along one square of it, and how far the model's
+# middle is from the middle it was built round, which shelf_stock takes off so its goods stand where the model's boards
+# are. Each goods model's foot is the top of its lowest board: shelf_stock stands something there in every one, and
+# ShopFittings.java stands the goods by that height.
+SHELF_STOCK = {
+    # bookcase: built round its sides, its top's lip 0.02 proud at the front.
+    "bookcase": dict(levels=[(z, 0.345, -0.14, 0.148) for z in (0.09, 0.47, 0.84, 1.21)] + [(1.58, 0.34, -0.14, 0.148)],
+                     x0=-0.428, x1=0.42, middle=-0.01, books=True),
+    "low_shelves": dict(levels=[(0.07, 0.348, -0.174, 0.173), (0.44, 0.375, -0.174, 0.173)], x0=-0.478, x1=0.478, middle=-0.006),
+    "wall_shelf": dict(levels=[(0.16, 0.32, -0.12, 0.115)], x0=-0.43, x1=0.43, middle=0.0),
+    "wall_shelves": dict(levels=[(0.16, 0.37, -0.12, 0.115), (0.56, 0.32, -0.12, 0.115)], x0=-0.43, x1=0.43, middle=0.0),
+    "wire_wall_shelves": dict(levels=[(0.16, 0.37, -0.12, 0.115), (0.56, 0.32, -0.12, 0.115)], x0=-0.43, x1=0.43, middle=0.0),
+    # metal_rack and store_shelves are two squares long: their goods are one square's length, clear of the uprights.
+    "metal_rack": dict(levels=[(0.12, 0.33, -0.29, 0.24), (0.95, 0.33, -0.29, 0.24), (1.72, 0.23, -0.29, 0.24)], x0=-0.4, x1=0.4,
+                       middle=0.0, shop=True),
+    # store_shelves' shelves slope up 0.02 to the back: the goods stand on the middle of that.
+    "store_shelves": dict(levels=[(0.16, 0.36, -0.215, 0.205)] + [(z + 0.017, 0.33, -0.21, 0.205) for z in (0.55, 0.92, 1.29)]
+                          + [(1.677, 0.22, -0.21, 0.205)], x0=-0.43, x1=0.43, middle=-0.02, shop=True),
+    "wall_shelving": dict(levels=[(0.08, 0.42, -0.2, 0.18), (0.555, 0.44, -0.2, 0.18), (1.055, 0.44, -0.2, 0.18)], x0=-0.445, x1=0.445,
+                          middle=0.0),
+    # A shop's shelves on a wall stand on the foot of their lower brackets, 0.63 under the lower board's top of 0.89.
+    "shop_wall_shelves": dict(levels=[(0.26, 0.6, -0.185, 0.195), (0.95, 0.3, -0.185, 0.195)], x0=-0.44, x1=0.44, middle=0.0, shop=True),
+    "zippee_wall_shelves": dict(levels=[(0.26, 0.6, -0.185, 0.195), (0.95, 0.3, -0.185, 0.195)], x0=-0.44, x1=0.44, middle=0.0,
+                                shop=True),
+}
+
+
+def home_goods(part, pick, levels, x0, x1, fill, books):
+    """What a house keeps on its shelves, from x0 to x1 along each board: runs of books stood up, and among them boxes,
+    tins and jars, unless books is set. A place is left empty for 1 - fill of them, but never the first on the lowest board."""
+    first = True
+    for z, room, y0, y1 in levels:
+        x = x0
+        while True:
+            kind = 0.0 if books else pick.random()
+            widths = []
+            if kind < 0.6:
+                count = pick.randint(3, 9)
+                widths = [pick.uniform(0.022, 0.05) for _ in range(count)]
+                wide = sum(widths)
+            elif kind < 0.85:
+                wide = pick.uniform(0.1, 0.24)
+            else:
+                wide = 2 * pick.uniform(0.03, 0.045) + 0.01
+            if x + wide > x1:
+                # Books to the end of the board, as many as fit.
+                if kind >= 0.6:
+                    kind, widths = 0.0, [pick.uniform(0.022, 0.05) for _ in range(9)]
+                while widths and x + sum(widths) > x1:
+                    widths.pop()
+                if kind >= 0.6 or not widths:
+                    break
+                wide = sum(widths)
+            if first or pick.random() < fill:
+                first = False
+                if kind < 0.6:
+                    at = x
+                    for each in widths:
+                        tall = min(pick.uniform(0.17, 0.29), room - 0.02)
+                        deep = min(pick.uniform(0.13, 0.2), y1 - y0 - 0.01)
+                        back = y0 + pick.uniform(0.0, max(0.0, y1 - y0 - deep - 0.005))
+                        cuboid(part(pick.choice(("books", "books", "vinyl", "linen", "cloth"))), at, at + each - 0.002, back, back + deep, z, z + tall)
+                        at += each
+                elif kind < 0.85:
+                    packet(part, pick, x + 0.004, x + wide - 0.004, y0 + 0.01, min(y1, y0 + pick.uniform(0.12, 0.3)), z,
+                           min(pick.uniform(0.08, 0.22), room - 0.02))
+                else:
+                    tin(part, pick, x + wide / 2, (y0 + y1) / 2, z, wide / 2 - 0.006, min(pick.uniform(0.09, 0.16), room - 0.02))
+            x += wide + pick.uniform(0.0, 0.03)
+
+
+def shelf_stock(shelf, name, seed, fill, depth_rows):
+    """The goods on one square of a shelf of SHELF_STOCK: what a shop sells where it is a shop's, what a house keeps where
+    it is a house's. Built round the shelf model's middle, so it stands where that model's boards are."""
+    held = SHELF_STOCK[shelf]
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    levels = [(z, room, y0 - held["middle"], y1 - held["middle"]) for z, room, y0, y1 in held["levels"]]
+    if held.get("shop"):
+        # The first place on the lowest board always holds something, so the goods' foot is that board's top.
+        z, room, y0, y1 = levels[0]
+        packet(part, pick, held["x0"] + 0.003, held["x0"] + 0.12, y0 + 0.005, y0 + 0.15, z, min(0.2, room - 0.02))
+        stocked(part, pick, levels[:1], held["x0"] + 0.125, held["x1"], fill, depth_rows)
+        stocked(part, pick, levels[1:], held["x0"], held["x1"], fill, depth_rows)
+    else:
+        home_goods(part, pick, levels, held["x0"], held["x1"], fill, held.get("books", False))
+    finish()
+    return model
+
+
+def shelves_stock():
+    """Many and few of what each shelf of SHELF_STOCK holds, as the game paints it holding many things or few."""
+    made = []
+    for n, shelf in enumerate(sorted(SHELF_STOCK)):
+        made += [shelf_stock(shelf, shelf + "_goods_many", 300 + 2 * n, 0.9, 2), shelf_stock(shelf, shelf + "_goods_few", 301 + 2 * n, 0.4, 1)]
+    return made
+
+
 def shop_fittings():
     """What stands in shops, malls, bars and salons: the pieces ShopFittings.java places, and what they hold."""
     return [gondola("shop_gondola", 1, "wood"), gondola("shop_gondola_m", -1, "wood"), gondola("shop_gondola_red", 1, "vinyl"),
@@ -13437,7 +13523,7 @@ def every():
               parasol("parasol_dome", [(0.045, 2.43), (0.24, 2.39), (0.46, 2.28), (0.66, 2.11), (0.82, 1.88), (0.92, 1.62)], 0.08, 0.06)] + (indoors() + outdoors()
             + upholstered() + barrels_and_pots() + street() + display_cases() + awnings() + hoods() + industrial()
             + street_clutter() + home_fittings() + overhead() + office_medical() + wall_objects() + camp()
-            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + dumpsters()
+            + towers() + aerials() + farm_and_garden() + leisure() + shop_fittings() + shelves_stock() + dumpsters()
             + bar_panelling() + sports() + shops() + log_walls() + gallery() + cameras() + netarcade() + pulpit() + church_fittings())
 
 

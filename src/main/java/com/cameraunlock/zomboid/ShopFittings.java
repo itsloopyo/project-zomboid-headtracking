@@ -80,6 +80,19 @@ final class ShopFittings {
             BOTTLES = new Stock("bar_bottles_many", "bar_bottles_few", BOTTLES_FOOT, false);
 
     /**
+     * What a house's shelves, a shop's shelves on a wall and steel racking hold, as tools/models/furniture.py builds it in
+     * shelf_stock: each stands by the top of the shelf's lowest board, in metres over the shelf model's foot.
+     */
+    static final Stock BOOKCASE = shelf("bookcase", 0.09f), LOW_SHELVES = shelf("low_shelves", 0.07f), WALL_SHELF = shelf("wall_shelf", 0.16f),
+            WALL_SHELVES = shelf("wall_shelves", 0.16f), WIRE_WALL_SHELVES = shelf("wire_wall_shelves", 0.16f), METAL_RACK = shelf("metal_rack", 0.12f),
+            STORE_SHELVES = shelf("store_shelves", 0.16f), WALL_SHELVING = shelf("wall_shelving", 0.08f),
+            SHOP_WALL_SHELVES = shelf("shop_wall_shelves", 0.26f), ZIPPEE_WALL_SHELVES = shelf("zippee_wall_shelves", 0.26f);
+
+    private static Stock shelf(String model, float lowestBoard) {
+        return new Stock(model + "_goods_many", model + "_goods_few", lowestBoard, false);
+    }
+
+    /**
      * ContainerOverlays.updateContainerOverlaySprite paints a container's square with its fewer things while it holds
      * less than this many.
      */
@@ -214,6 +227,16 @@ final class ShopFittings {
             case "open_wardrobe" -> COATS;
             case "magazine_stand", "magazine_stand_red" -> MAGAZINES;
             case "bar_back" -> BOTTLES;
+            case "bookcase" -> BOOKCASE;
+            case "low_shelves" -> LOW_SHELVES;
+            case "wall_shelf" -> WALL_SHELF;
+            case "wall_shelves" -> WALL_SHELVES;
+            case "wire_wall_shelves" -> WIRE_WALL_SHELVES;
+            case "metal_rack" -> METAL_RACK;
+            case "store_shelves" -> STORE_SHELVES;
+            case "wall_shelving" -> WALL_SHELVING;
+            case "shop_wall_shelves" -> SHOP_WALL_SHELVES;
+            case "zippee_wall_shelves" -> ZIPPEE_WALL_SHELVES;
             default -> throw new IllegalStateException(piece.model.name + " is stocked and ShopFittings has nothing to stand on it");
         };
     }

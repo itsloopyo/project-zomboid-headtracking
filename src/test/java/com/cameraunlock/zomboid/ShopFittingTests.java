@@ -21,6 +21,7 @@ final class ShopFittingTests {
         Checks.run("seatsAreTheirModelsAndTakeTheirSeatsColour", ShopFittingTests::seatsAreTheirModelsAndTakeTheirSeatsColour);
         Checks.run("whatAFittingHoldsStandsWhereItsModelHasRoomForIt", ShopFittingTests::whatAFittingHoldsStandsWhereItsModelHasRoomForIt);
         Checks.run("eachSquaresGoodsStandOnThatSquare", ShopFittingTests::eachSquaresGoodsStandOnThatSquare);
+        Checks.run("whatAShelfHoldsStandsOnItsBoardsWithinIt", ShopFittingTests::whatAShelfHoldsStandsOnItsBoardsWithinIt);
         Checks.run("aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame", ShopFittingTests::aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame);
         Checks.run("magazineStandsAreTheStandWithMagazinesOnItsTiers", ShopFittingTests::magazineStandsAreTheStandWithMagazinesOnItsTiers);
         Checks.run("aMallTablesFourQuartersMeetAtItsMiddle", ShopFittingTests::aMallTablesFourQuartersMeetAtItsMiddle);
@@ -225,6 +226,29 @@ final class ShopFittingTests {
         }
         Models.Model wardrobe = Models.get("open_wardrobe"), coats = Models.get(ShopFittings.COATS.many());
         check(coats.minY > wardrobe.minY && coats.maxY < wardrobe.maxY - 0.01f, "coats hang inside the open cupboard, in front of its back");
+    }
+
+    private static void whatAShelfHoldsStandsOnItsBoardsWithinIt() {
+        // Two squares long, the goods on each square stand round that square's middle, half the model's length from its own.
+        String[] shelves = {"bookcase", "low_shelves", "wall_shelf", "wall_shelves", "wire_wall_shelves", "metal_rack", "store_shelves", "wall_shelving",
+            "shop_wall_shelves", "zippee_wall_shelves"};
+        for (String name : shelves) {
+            Models.Model shelf = Models.get(name);
+            Furniture piece = Furniture.single(null, name, 0);
+            piece.stocked = true;
+            ShopFittings.Stock stock = ShopFittings.stockOf(piece);
+            boolean pair = shelf.width() > 1.5f;
+            float half = pair ? shelf.width() / 4f : shelf.width() / 2f;
+            for (String held : new String[] {stock.many(), stock.few()}) {
+                Models.Model goods = Models.get(held);
+                check(goods.minX > -half && goods.maxX < half, held + " stays within its square of " + name + ": " + goods.minX + " to " + goods.maxX + " in " + half);
+                check(goods.minY > shelf.minY && goods.maxY < shelf.maxY, held + " stays within the depth of " + name + ": " + goods.minY + " to " + goods.maxY
+                        + " in " + shelf.minY + " to " + shelf.maxY);
+                check(stock.at() + goods.height() < shelf.height() + 0.35f, held + " stands no more than a hand over " + name + "'s top");
+            }
+        }
+        check(Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS + 1] > Models.get(ShopFittings.BOOKCASE.many()).first[Models.BOOKS],
+                "a bookcase's many things are books");
     }
 
     private static void aGlassCounterIsItsModelAndItsGlassIsInsideItsFrame() {

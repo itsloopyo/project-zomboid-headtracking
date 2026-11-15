@@ -624,7 +624,7 @@ final class Furniture {
         if (called.equals("Shelves") && holds.equals("shelves") && name.startsWith("furniture_shelving") && properties.has(IsoFlagType.solid)
                 && surface >= WorldScene.TALL_SURFACE && single) {
             Furniture bookcase = new Furniture(sprite, "bookcase", turns).dye(1 << Models.WOOD, surfaceHigh / 2f);
-            return bookcase.stand(surfaceUp, bookcase.model.height(), true);
+            return ShopFittings.stocked(bookcase.stand(surfaceUp, bookcase.model.height(), true));
         }
         if (name.startsWith("furniture_seating_indoor") && called.equals("Couch") && surface > 0 && pair) {
             return new Furniture(sprite, "sofa", turns).dye(1 << Models.CLOTH, surfaceHigh).stand(0f, 0f, true);
@@ -634,21 +634,21 @@ final class Furniture {
             // The game gives the height of the top board. Two boards where that leaves room for a second under it.
             Furniture shelf = new Furniture(sprite, surface >= WALL_SHELVES_LOWEST ? "wall_shelves" : "wall_shelf", turns)
                     .dyeAtBack(1 << Models.WOOD, surfaceHigh);
-            return shelf.stand(0f, 0f, true).raise(surfaceUp - shelf.model.height());
+            return ShopFittings.stocked(shelf.stand(0f, 0f, true).raise(surfaceUp - shelf.model.height()));
         }
         // Low open shelves in a run, each square of them meeting the next as counters do.
         if (called.equals("Shelves") && single && low && Surfaces.table(properties) && counterHigh && holds.equals("shelves")
                 && name.startsWith("furniture_shelving")) {
             Furniture shelves = new Furniture(sprite, "low_shelves", turns).dye(1 << Models.WOOD, surfaceHigh * 0.5f);
-            return shelves.meet(surfaceUp, shelves.model.height(), true);
+            return ShopFittings.stocked(shelves.meet(surfaceUp, shelves.model.height(), true));
         }
         // Shelving two squares long with no height given: a shop's, or steel racking.
         if (called.equals("Shelves") && pair && surface == 0 && properties.has(IsoFlagType.solidtrans) && !low) {
             if (holds.equals("metal_shelves")) {
-                return new Furniture(sprite, "metal_rack", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+                return ShopFittings.stocked(new Furniture(sprite, "metal_rack", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true));
             }
             if (holds.equals("shelves")) {
-                return new Furniture(sprite, "store_shelves", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true);
+                return ShopFittings.stocked(new Furniture(sprite, "store_shelves", turns).dye(1 << Models.PAINT, LOCKER_DYE).stand(0f, 0f, true));
             }
             return null;
         }

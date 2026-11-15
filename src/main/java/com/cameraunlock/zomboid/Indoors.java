@@ -145,7 +145,7 @@ final class Indoors {
         }
         if (called.equals("Shelves") && holds.equals("metal_shelves") && single && high) {
             Furniture shelf = new Furniture(sprite, "wire_wall_shelves", turns).stand(0f, 0f, true);
-            return shelf.raise(surfaceUp - shelf.model.height());
+            return ShopFittings.stocked(shelf.raise(surfaceUp - shelf.model.height()));
         }
         if (called.equals("Rack") && group.equals("Coat") && single && high) {
             Furniture rack = new Furniture(sprite, "coat_rack", turns).dyeAtBack(1 << Models.WOOD, COAT_DYE).stand(0f, 0f, true);
