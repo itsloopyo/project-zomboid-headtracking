@@ -13,4 +13,6 @@ public class ItemContainer {
     public String getDisplayType() { throw new UnsupportedOperationException("reference stub"); }
     public String getCustomName() { throw new UnsupportedOperationException("reference stub"); }
     public zombie.iso.IsoObject getParent() { throw new UnsupportedOperationException("reference stub"); }
+    public boolean isExplored() { throw new UnsupportedOperationException("reference stub"); }
+    public void requestSync() { throw new UnsupportedOperationException("reference stub"); }
 }

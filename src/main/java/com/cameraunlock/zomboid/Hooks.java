@@ -584,6 +584,15 @@ public final class Hooks {
         }
     }
 
+    /**
+     * Called with what a panel answers when its Lua asks whether the mouse is over it
+     * (UIElement.isMouseOver, AtomUI.isMouseOver), which reads the cursor itself: the inventory's
+     * hover row and item tooltips follow it.
+     */
+    public static Boolean uiMouseOver(Boolean stock) {
+        return uiBlind() ? Boolean.FALSE : stock;
+    }
+
     /** In place of UIManager asking whether the mouse is over a panel, for the wheel. */
     public static Boolean uiPointOver(UIElementInterface element, double x, double y) {
         return uiBlind() ? Boolean.FALSE : element.isPointOver(x, y);

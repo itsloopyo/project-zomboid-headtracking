@@ -3366,7 +3366,8 @@ public final class Tests {
         check(kept.frame(false, true, false) == KeptPanels.Act.NONE && !kept.kept(), "with the option off nothing is asked of the panels");
         check(kept.frame(true, true, false) == KeptPanels.Act.SHOW && kept.kept(), "the option coming on shows them");
         kept.notShown();
-        check(!kept.kept() && kept.frame(true, true, false) == KeptPanels.Act.SHOW, "where the game had not made them, they are shown on the next frame");
+        check(kept.kept(), "where the game had not made them they are still kept, so I and Esc go on leaving them open");
+        check(kept.frame(true, true, false) == KeptPanels.Act.SHOW, "and they are shown on the next frame");
         check(kept.frame(true, true, false) == KeptPanels.Act.NONE, "and then left as they are while the look has the mouse");
         check(kept.frame(true, false, false) == KeptPanels.Act.NONE && kept.frame(true, false, false) == KeptPanels.Act.NONE,
                 "with the pointer out they are the game's, folding as it folds them");
@@ -3381,16 +3382,32 @@ public final class Tests {
         kept.frame(true, true, true);
         kept.reset();
         check(!kept.kept() && kept.frame(true, true, false) == KeptPanels.Act.SHOW, "after a reset, as on leaving the save, they are shown as from the start");
+        KeptPanels owed = new KeptPanels();
+        owed.frame(true, true, false);
+        owed.notShown();
+        check(owed.frame(false, true, false) == KeptPanels.Act.LET_GO && !owed.kept(), "the option going off before they could be shown lets go of them all the same");
+        owed.frame(true, true, false);
+        owed.notShown();
+        check(owed.frame(true, true, true) == KeptPanels.Act.FOLD && owed.frame(true, true, false) == KeptPanels.Act.SHOW,
+                "a show still owed as the sights come up gives way to the fold, and they are shown as the sights go down");
         KeptPanels aimingFirst = new KeptPanels();
         check(aimingFirst.frame(true, true, true) == KeptPanels.Act.SHOW && aimingFirst.frame(true, true, true) == KeptPanels.Act.FOLD,
                 "the option coming on while aiming shows them and then folds them for the sights");
     }
 
     private static void heldInteractTakesAllFromAContainerWithSomethingInIt() {
-        check(!ClickRules.takesAll(false, false), "a tap on a container shows it in the loot panel");
-        check(!ClickRules.takesAll(false, true), "an empty one too");
-        check(ClickRules.takesAll(true, false), "the key held on one with something in it takes all of it");
-        check(!ClickRules.takesAll(true, true), "held on an empty one, it shows it, as there is nothing to take");
+        int[] holesAsked = {0};
+        java.util.function.BooleanSupplier hole = () -> { holesAsked[0]++; return true; }, none = () -> false;
+        check(ClickRules.held(false, true, false, true, none) == ClickRules.Held.TAKE_ALL, "held on a container a tap would show, with something in it, it takes all of it");
+        check(ClickRules.held(false, true, true, false, none) == ClickRules.Held.TAKE_ALL,
+                "and on one never looked in, which shows empty until the panel fills it as it lists it");
+        check(ClickRules.held(false, true, true, true, none) == ClickRules.Held.AS_TAP, "held on one known to be empty, it does what a tap does");
+        check(ClickRules.held(false, false, false, true, none) == ClickRules.Held.AS_TAP, "and on what a tap does not show in the loot panel");
+        check(ClickRules.held(true, false, false, true, hole) == ClickRules.Held.CLIMB, "held on a window that can be climbed through, it climbs");
+        check(ClickRules.held(false, true, false, true, hole) == ClickRules.Held.TAKE_ALL && holesAsked[0] == 0,
+                "a container to take from comes before a hole at the reticle, which is not looked for then");
+        check(ClickRules.held(false, true, true, true, hole) == ClickRules.Held.HOLE && holesAsked[0] == 1, "past an empty container the hole is climbed through");
+        check(ClickRules.held(false, false, false, true, hole) == ClickRules.Held.HOLE, "as it is with nothing else there");
         check(InteractWords.line("E", "Loot Shelves", "Take All").equals("[E] Loot Shelves   [Hold E] Take All"), "the label says both, the key named from its binding");
         check(InteractWords.line("E", "Loot Shelves", "Loot Shelves").equals("[E] Loot Shelves"), "and only the tap where holding does the same");
         check(InteractWords.Does.TAKE_ALL.key.equals("IGUI_invpage_Loot_all") && !InteractWords.Does.TAKE_ALL.named, "in the loot panel's own words for its button");

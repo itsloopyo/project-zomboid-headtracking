@@ -397,7 +397,10 @@ public final class Controls {
         if (!stock) {
             if (windowHeld) {
                 windowHeld = false;
-                view.firstPerson.useAtCentre(false);
+                // Not where the look let go between the press and now: a panel came up, or the game paused.
+                if (view.firstPerson.lookCaptured()) {
+                    view.firstPerson.useAtCentre(false);
+                }
             }
             interactDown = false;
             interactTaken = false;
@@ -409,11 +412,13 @@ public final class Controls {
             // On a window that can be climbed through, a tap opens or shuts it and holding the key climbs, as in the game's own view;
             // on a hole shot through something that a body fits through holding the key climbs through it, and on a container
             // with something in it a tap shows it in the loot panel and holding the key takes all of it.
-            windowHeld = view.firstPerson.lookCaptured() && (view.firstPerson.climbableAtCentre() || view.firstPerson.lootableAtCentre());
+            windowHeld = view.firstPerson.lookCaptured() && view.firstPerson.holdableAtCentre();
             interactTaken = windowHeld || view.firstPerson.lookCaptured() && view.firstPerson.useAtCentre(false);
         } else if (windowHeld && System.nanoTime() - interactSince >= CLIMB_HOLD_NANOS) {
             windowHeld = false;
-            view.firstPerson.useAtCentre(true);
+            if (view.firstPerson.lookCaptured()) {
+                view.firstPerson.useAtCentre(true);
+            }
         }
         return !interactTaken;
     }

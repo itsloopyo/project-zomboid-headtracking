@@ -21,7 +21,7 @@ final class KeptPanels {
         LET_GO
     }
 
-    private boolean kept, folded, looked;
+    private boolean kept, folded, looked, owed;
 
     /**
      * @param option  whether InventoryStaysOpen is on
@@ -40,28 +40,31 @@ final class KeptPanels {
             kept = true;
             folded = false;
             looked = looking;
+            owed = false;
             return Act.SHOW;
         }
         if (aiming && !folded) {
             folded = true;
+            owed = false;
             return Act.FOLD;
         }
-        if (!aiming && folded) {
-            folded = false;
+        if (aiming) {
             looked = looking;
-            return Act.SHOW;
+            return Act.NONE;
         }
-        boolean back = looking && !looked && !folded;
+        boolean show = folded || owed || looking && !looked;
+        folded = false;
+        owed = false;
         looked = looking;
-        return back ? Act.SHOW : Act.NONE;
+        return show ? Act.SHOW : Act.NONE;
     }
 
     /** The SHOW just asked for could not be done, as the game has not made both panels yet: it is asked for again on the next frame. */
     void notShown() {
-        kept = false;
+        owed = true;
     }
 
-    /** Whether the panels are kept open. */
+    /** Whether the panels are kept open: from the option coming on until it goes off or kept is reset, shown or not yet. */
     boolean kept() {
         return kept;
     }
@@ -71,5 +74,6 @@ final class KeptPanels {
         kept = false;
         folded = false;
         looked = false;
+        owed = false;
     }
 }

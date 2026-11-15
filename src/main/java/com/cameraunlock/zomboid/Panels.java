@@ -1,11 +1,14 @@
 package com.cameraunlock.zomboid;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import se.krka.kahlua.vm.KahluaTable;
 import zombie.Lua.LuaManager;
 import zombie.characters.IsoPlayer;
+import zombie.input.Mouse;
 import zombie.inventory.ItemContainer;
+import zombie.network.GameClient;
 import zombie.ui.UIElement;
 import zombie.ui.UIElementInterface;
 import zombie.ui.UIManager;
@@ -20,6 +23,7 @@ final class Panels {
     /** The Lua functions that hand back a player's inventory panel and loot panel. */
     private static final String LOOT_PANEL = "getPlayerLoot", INVENTORY_PAGE = "ISInventoryPage";
     private static final List<String> INVENTORY_PANELS = List.of("getPlayerInventory", LOOT_PANEL);
+    private static final String MOUSE_DRAG = "ISMouseDrag";
 
     /**
      * The Lua classes whose panels are windows and dialogs. The inventory and
@@ -233,6 +237,11 @@ final class Panels {
             if (Boolean.TRUE.equals(panel.rawget("isCollapsed"))) {
                 panel.rawset("isCollapsed", Boolean.FALSE);
                 panel.rawset("collapseCounter", Double.valueOf(0));
+                // As ISInventoryPage.onMouseMove unfolds one: on a server, what a container round the character holds is asked for again.
+                if (GameClient.client && !Boolean.TRUE.equals(panel.rawget("onCharacter")) && panel.rawget("inventoryPane") instanceof KahluaTable pane
+                        && pane.rawget("inventory") instanceof ItemContainer shown) {
+                    shown.requestSync();
+                }
                 callOn(panel, "clearMaxDrawHeight", function, playerIndex);
             }
         }
@@ -278,7 +287,7 @@ final class Panels {
     }
 
     /** The troubles with the loot panel that are said once each, for each player. */
-    private enum Trouble { SELECT, FLOOR, REFRESH, TAKE_ALL }
+    private enum Trouble { SELECT, FLOOR, REFRESH, TAKE_ALL, CLOSE_SOUND }
 
     /** Whether each trouble has been said for each player: the loot panel is asked after several times a second. */
     private static final boolean[][] troubleSaid = new boolean[View.COUNT][Trouble.values().length];
@@ -324,9 +333,10 @@ final class Panels {
         try {
             if (!wasShown) {
                 LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, true);
-                if (!callPage(Trouble.REFRESH, playerIndex, "refreshBackpacks", loot)) {
-                    return false;
-                }
+            }
+            // refreshBackpacks lists the containers round the character, and fills one never looked in (checkExplored).
+            if ((!wasShown || !listed(loot, container) || !container.isExplored()) && !callPage(Trouble.REFRESH, playerIndex, "refreshBackpacks", loot)) {
+                return false;
             }
             if (!showInLoot(playerIndex, container)) {
                 Log.info("Take All of player " + (playerIndex + 1) + " was not asked of the game: its loot panel does not list the " + container.getType());
@@ -336,6 +346,43 @@ final class Panels {
         } finally {
             if (!wasShown) {
                 LuaManager.caller.pcallvoid(UIManager.getDefaultThread(), UIManager.tableget(loot, "setVisible"), loot, false);
+                // Shown, a container plays its opening sound (selectContainer); taken off the screen, the game's panel plays its closing one.
+                callPage(Trouble.CLOSE_SOUND, playerIndex, "playContainerCloseSound", loot, container);
+            }
+        }
+    }
+
+    /**
+     * Ends whatever the mouse was doing in the game's panels as the look takes it: a drag of items
+     * is put down where it started, and every panel is told the pointer left it and, for each
+     * button still held, that it was let go outside it, which stops a window being moved or
+     * resized and lets go of the capture (ISInventoryPage.onMouseUpOutside). While the look holds
+     * the mouse the panels are told nothing of it (Hooks.uiBlind), so the release itself would
+     * never reach them.
+     */
+    static void letGoOfMouse() {
+        if (LuaManager.env.rawget(MOUSE_DRAG) instanceof KahluaTable drag && drag.rawget("dragging") != null) {
+            if (drag.rawget("draggingFocus") instanceof KahluaTable pane) {
+                pane.rawset("dragging", null);
+                if (pane.rawget("draggedItems") instanceof KahluaTable dragged) {
+                    callOn(dragged, "reset", MOUSE_DRAG + ".draggingFocus.draggedItems", 0);
+                }
+            }
+            drag.rawset("dragging", null);
+            drag.rawset("draggingFocus", null);
+            Log.info("a drag of items in the game's panels was put down as the look took the mouse");
+        }
+        boolean left = Mouse.isButtonDown(0), right = Mouse.isButtonDown(1);
+        for (UIElementInterface element : new ArrayList<>(UIManager.getUI())) {
+            if (!element.isVisible()) {
+                continue;
+            }
+            element.onExtendMouseMoveOutside(0, 0, -1, -1);
+            if (left) {
+                element.onMouseButtonUpOutside(0, -1, -1);
+            }
+            if (right) {
+                element.onMouseButtonUpOutside(1, -1, -1);
             }
         }
     }

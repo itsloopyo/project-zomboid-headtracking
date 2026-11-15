@@ -260,6 +260,8 @@ public final class FirstPerson {
     /** The inventory and loot panels kept open with the look (InventoryStaysOpen), and the loot panel following it. */
     private final KeptPanels keptPanels = new KeptPanels();
     private final LootFollow lootFollow = new LootFollow();
+    /** Whether the look had the mouse last frame, so the game's panels are let go of it once as it takes it (Panels.letGoOfMouse). */
+    private boolean mouseLookedLastFrame;
     /**
      * Leaving for the main menu stops the frames with the look still marked as captured, and
      * the game goes on reading its keys there.
@@ -596,6 +598,7 @@ public final class FirstPerson {
         keptPanels.reset();
         pointer.keepPanels(false);
         lootFollow.reset();
+        mouseLookedLastFrame = false;
     }
 
     /** The view at load is owed again, and nothing is left of the vehicle the player was in or the hints of their landing. */
@@ -1176,6 +1179,11 @@ public final class FirstPerson {
             point();
         }
         lookCaptured = active && !pointer.on();
+        boolean mouseLook = lookCaptured && view.onMouse();
+        if (mouseLook && !mouseLookedLastFrame) {
+            Panels.letGoOfMouse();
+        }
+        mouseLookedLastFrame = mouseLook;
         chase(player, now, sinceLastFrame);
         // From behind the character the camera is not the head's, and turns while the game's animation has the body.
         if (lookCaptured && View.onController(player) && (!bodyWhole || behind)) {
@@ -2431,15 +2439,16 @@ public final class FirstPerson {
             case SHOW -> {
                 if (!Panels.showUnfolded(view.index)) {
                     keptPanels.notShown();
-                } else if (!was) {
-                    pointer.keepPanels(true);
-                    lootFollow.reset();
-                    Log.info("the inventory and loot panels of player " + (view.index + 1) + " are kept open in first person");
                 }
             }
             case FOLD -> Panels.fold(view.index);
             case LET_GO -> letGoOfPanels(!pointer.byKey());
             case NONE -> { }
+        }
+        if (keptPanels.kept() && !was) {
+            pointer.keepPanels(true);
+            lootFollow.reset();
+            Log.info("the inventory and loot panels of player " + (view.index + 1) + " are kept open in first person");
         }
     }
 
@@ -2448,6 +2457,7 @@ public final class FirstPerson {
      * pointer not out for the inventory, where they would be closed without the option.
      */
     private void letGoOfPanels(boolean hide) {
+        // PointerMode keeps the panels exactly as long as KeptPanels does: with it off, I and Esc close them again.
         pointer.keepPanels(false);
         lootFollow.reset();
         if (hide) {
@@ -2471,7 +2481,7 @@ public final class FirstPerson {
                     target = Panels.floor(view.index);
                 }
             } else if (found != null) {
-                CentreUse.Use use = keyUse(player, found, false, null);
+                CentreUse.Use use = keyUse(player, found);
                 if (use != null && use.route() == CentreUse.Route.CONTAINER) {
                     target = use.container();
                 }
@@ -2508,25 +2518,19 @@ public final class FirstPerson {
     }
 
     /**
-     * Whether the reticle is on a window the character can climb through, or a hole shot through
-     * something it fits through, for which the key waits to see if it is held.
+     * Whether holding the key on what the reticle is on does something a tap does not (holdUse),
+     * so the key waits to see if it is held: climbs through a window or a hole, or takes all that
+     * is in a container.
      */
-    boolean climbableAtCentre() {
-        IsoPlayer player = view.player();
-        return !keyRefused(player) && player.getVehicle() == null && reticleOnScreen && (CentreUse.climbable(centre(player), player) || hopAtCentre(true) != null);
-    }
-
-    /**
-     * Whether the reticle is on a container within reach with something in it, for which the key
-     * waits to see if it is held: held, it takes all of it (CentreUse.Route.TAKE_ALL).
-     */
-    boolean lootableAtCentre() {
+    boolean holdableAtCentre() {
         IsoPlayer player = view.player();
         if (keyRefused(player) || player.getVehicle() != null || !reticleOnScreen) {
             return false;
         }
-        CentreUse.Use use = keyUse(player, centre(player), true, null);
-        return use != null && use.route() == CentreUse.Route.TAKE_ALL;
+        IsoObject found = centre(player);
+        CentreUse.Use tap = keyUse(player, found);
+        CentreUse.Use hold = holdUse(player, found, tap, true);
+        return hold != null && hold != tap;
     }
 
     /** What the key would act on at the reticle, or null (CentreUse.under). */
@@ -2545,19 +2549,30 @@ public final class FirstPerson {
     }
 
     /**
-     * What a press of the Interact key would do with the reticle on found (centre), tapped or held
-     * (climb), before the world menu: the one decision both the key and the label under the
-     * reticle (InteractLabel) take. Null where the key is left to the game. hop is the climb
-     * through a hole there (hopAtCentre), asked for only where it is held and no window is in
-     * the way.
+     * What a tap of the Interact key would do with the reticle on found (centre), before the world
+     * menu: the one decision both the key and the label under the reticle (InteractLabel) take.
+     * Null where the key is left to the game.
      */
-    private CentreUse.Use keyUse(IsoPlayer player, IsoObject found, boolean climb, HoleHop.Hop hop) {
-        if (climb && !CentreUse.climbable(found, player)) {
-            if (hop != null) {
-                return new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop);
-            }
-        }
-        return view.centreUse.decide(found, reticleLine, floorUp(player), player, view.onMouse(), climb);
+    private CentreUse.Use keyUse(IsoPlayer player, IsoObject found) {
+        return view.centreUse.decide(found, reticleLine, floorUp(player), player, view.onMouse());
+    }
+
+    /**
+     * What holding the Interact key would do with the reticle on found, by ClickRules.held, where
+     * tap is what a tap would (keyUse): the one decision the key, the wait for its hold and the
+     * label take. tap itself where holding does nothing more. say: HoleHop says why there is no
+     * hole to climb through.
+     */
+    private CentreUse.Use holdUse(IsoPlayer player, IsoObject found, CentreUse.Use tap, boolean say) {
+        boolean loot = tap != null && tap.route() == CentreUse.Route.CONTAINER;
+        HoleHop.Hop[] hop = {null};
+        return switch (ClickRules.held(CentreUse.climbable(found, player), loot, loot && tap.container().getItems().isEmpty(),
+                loot && tap.container().isExplored(), () -> (hop[0] = hopAtCentre(say)) != null)) {
+            case CLIMB -> CentreUse.Use.of(CentreUse.Route.CLIMB, found, InteractWords.Does.CLIMB_THROUGH);
+            case TAKE_ALL -> new CentreUse.Use(CentreUse.Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, tap.container(), null);
+            case HOLE -> new CentreUse.Use(CentreUse.Route.HOLE, null, InteractWords.Does.CLIMB_THROUGH, null, hop[0]);
+            case AS_TAP -> tap;
+        };
     }
 
     /** The world menu the key opens where it acts on nothing else, or null. */
@@ -2583,15 +2598,17 @@ public final class FirstPerson {
             return false;
         }
         IsoObject found = centre(player);
-        CentreUse.Use use = keyUse(player, found, climb, null);
-        if (climb && !CentreUse.climbable(found, player) && (use == null || use.route() != CentreUse.Route.TAKE_ALL)) {
-            HoleHop.Hop hop = hopAtCentre(true);
-            if (hop != null) {
-                use = keyUse(player, found, true, hop);
-            }
+        CentreUse.Use use = keyUse(player, found);
+        if (climb) {
+            use = holdUse(player, found, use, true);
         }
         if (use != null && use.route() == CentreUse.Route.HOLE) {
             HoleHop.go(player, use.hop());
+            return true;
+        }
+        if (use != null && use.route() == CentreUse.Route.TAKE_ALL) {
+            // Done or not, the hold was for Take All: where the game would not have it, that is logged and nothing else opens.
+            view.centreUse.act(use, player);
             return true;
         }
         CentreUse.Outcome outcome = use == null ? CentreUse.Outcome.NOTHING : view.centreUse.act(use, player);
@@ -2628,15 +2645,12 @@ public final class FirstPerson {
             view.interactLabel.update(null, null, player, now);
             return;
         }
-        CentreUse.Use tap = keyUse(player, found, false, null);
+        CentreUse.Use tap = keyUse(player, found);
+        CentreUse.Use hold = holdUse(player, found, tap, false);
         if (tap == null) {
             tap = menuUse(player);
         }
-        boolean window = CentreUse.climbable(found, player);
-        HoleHop.Hop hop = window ? null : hopAtCentre(false);
-        CentreUse.Use hold = window || hop != null ? keyUse(player, found, true, hop)
-                : tap != null && tap.route() == CentreUse.Route.CONTAINER ? keyUse(player, found, true, null) : null;
-        view.interactLabel.update(tap, hold, player, now);
+        view.interactLabel.update(tap, hold == tap || hold == null ? null : hold, player, now);
     }
 
     /**
@@ -2688,7 +2702,7 @@ public final class FirstPerson {
         if (player.getVehicle() != null || line == null) {
             return;
         }
-        CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true, false);
+        CentreUse.Outcome outcome = view.centreUse.press(line, floorUp(player), player, IsoWorld.instance.currentCell, true);
         if (outcome == CentreUse.Outcome.CONTAINER) {
             // Opened as the Interact key opens one, it is put away as that one is: the pointer button or Escape shuts it.
             pointer.open();

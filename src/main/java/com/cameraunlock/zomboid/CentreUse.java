@@ -181,7 +181,7 @@ final class CentreUse {
         RELEASE,
         /** The game's click on a container within its reach, which puts it in the loot panel. */
         CONTAINER,
-        /** The loot panel's Take All on a container within the click's reach, for the key held on one with something in it. */
+        /** The loot panel's Take All on a container within the click's reach, for the key held on it (ClickRules.held). */
         TAKE_ALL,
         /** A climb through a hole (HoleHop). */
         HOLE,
@@ -203,22 +203,18 @@ final class CentreUse {
     }
 
     /**
-     * What a press would do with the reticle on found (under): what act then does.
+     * What a tap of the key would do with the reticle on found (under): what act then does. What
+     * holding it does is FirstPerson.holdUse's, by ClickRules.held.
      *
      * @param pointer whether the player has a pointer to work a container's panels with
-     * @param climb   whether the key is held, which climbs through a window that can be climbed through instead of opening or
-     *                shutting it, and takes all that is in a container instead of showing it
      * @return null where the key is left to the game
      */
-    Use decide(IsoObject found, ViewCamera.Pose view, float floorUp, IsoPlayer player, boolean pointer, boolean climb) {
+    Use decide(IsoObject found, ViewCamera.Pose view, float floorUp, IsoPlayer player, boolean pointer) {
         if (found == null) {
             return null;
         }
         if (found instanceof IsoWorldInventoryObject) {
             return Use.of(Route.GRAB, found, InteractWords.Does.GRAB);
-        }
-        if (climb && climbable(found, player)) {
-            return Use.of(Route.CLIMB, found, InteractWords.Does.CLIMB_THROUGH);
         }
         if (found instanceof IsoWindow pane && !pane.isSmashed() && !pane.isInvincible() && pane.getBarricadeForCharacter(player) == null
                 && player.getCurrentSquare() != pane.getSquare() && player.getCurrentSquare() != pane.getOppositeSquare()) {
@@ -261,9 +257,7 @@ final class CentreUse {
         // half the view is on is the one shown.
         ItemContainer shown = found.getContainerCount() >= 2
                 ? found.getContainerByIndex(above(at, view, floorUp, 0f) > ViewCamera.LEVEL_HEIGHT / 2f ? 1 : 0) : found.getContainer();
-        return ClickRules.takesAll(climb, shown.getItems().isEmpty())
-                ? new Use(Route.TAKE_ALL, found, InteractWords.Does.TAKE_ALL, shown, null)
-                : new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
+        return new Use(Route.CONTAINER, found, InteractWords.Does.LOOT, shown, null);
     }
 
     /**
@@ -380,10 +374,9 @@ final class CentreUse {
      * @param view    the line from the eye through the reticle
      * @param floorUp the height of the floor the player stands on, in tiles above level 0
      * @param pointer whether the player has a pointer to work a container's panels with
-     * @param climb   whether the key was held, which climbs through a window that can be climbed through instead of opening or shutting it
      */
-    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer, boolean climb) {
-        Use use = decide(under(view, floorUp, player, cell), view, floorUp, player, pointer, climb);
+    Outcome press(ViewCamera.Pose view, float floorUp, IsoPlayer player, IsoCell cell, boolean pointer) {
+        Use use = decide(under(view, floorUp, player, cell), view, floorUp, player, pointer);
         return use == null ? Outcome.NOTHING : act(use, player);
     }
 

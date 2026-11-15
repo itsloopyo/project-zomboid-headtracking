@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import com.cameraunlock.zomboid.InteractWords.Does;
+import java.util.function.BooleanSupplier;
 
 /**
  * What the game's click does (ISObjectClickHandler), by its own tests in its own order, on what
@@ -71,11 +72,38 @@ final class ClickRules {
         return inReach ? Does.LOOT : walks ? Does.WALK_TO : null;
     }
 
+    /** What holding the key does where a tap does something else. */
+    enum Held {
+        /** Climbs through the window. */
+        CLIMB,
+        /** The loot panel's Take All on the container. */
+        TAKE_ALL,
+        /** Climbs through the hole. */
+        HOLE,
+        /** What a tap does. */
+        AS_TAP
+    }
+
     /**
-     * Whether the key on a container within the click's reach takes all that is in it, as the loot
-     * panel's Take All does: held, and with something to take. Otherwise it shows the container.
+     * What holding the key does with the reticle where it is, the one decision the key and the label
+     * under the reticle take: a window that can be climbed through is climbed through; a container
+     * a tap would show in the loot panel is emptied with its Take All, where something may be in it
+     * (one never looked in is filled as the panel lists it, so it counts as having something); and
+     * otherwise a hole a body fits through is climbed through.
+     *
+     * @param climbable a window the character can climb through
+     * @param loot      a tap shows a container within reach in the loot panel
+     * @param empty     that container has nothing in it
+     * @param explored  that container has been looked in, so what it holds is known
+     * @param hole      whether there is a hole to climb through there, asked only where nothing else is held for
      */
-    static boolean takesAll(boolean held, boolean empty) {
-        return held && !empty;
+    static Held held(boolean climbable, boolean loot, boolean empty, boolean explored, BooleanSupplier hole) {
+        if (climbable) {
+            return Held.CLIMB;
+        }
+        if (loot && (!empty || !explored)) {
+            return Held.TAKE_ALL;
+        }
+        return hole.getAsBoolean() ? Held.HOLE : Held.AS_TAP;
     }
 }

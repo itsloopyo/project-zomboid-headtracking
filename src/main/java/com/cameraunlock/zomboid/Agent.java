@@ -861,6 +861,8 @@ public final class Agent {
                 uiBlind("updateMouseMove", "(IIZ)Z", "onExtendMouseMoveOutside", "(DDDD)V", "uiMoveOutside"),
                 uiBlind("updateTooltip", "(DD)V", "isOverElement", "(DD)Z", "uiOverElement"),
                 uiBlind("update", "()V", "isPointOver", "(DD)Ljava/lang/Boolean;", "uiPointOver"),
+                uiMouseOver("zombie/ui/UIElement"),
+                uiMouseOver("zombie/ui/AtomUI"),
                 new Patch(UI, "update after isAiming", classBytes -> CallSite.insertAfter(classBytes,
                         new CallSite.Method(UI, "update", "()V"), aiming, clickAiming)),
                 // Once where a right press reaches the object under the cursor and once where its release does.
@@ -2117,6 +2119,13 @@ public final class Agent {
                 new CallSite.Method(UI, within, descriptor),
                 new CallSite.Method(element, call, callDescriptor),
                 new CallSite.Method(HOOKS, hook, "(L" + element + ";" + callDescriptor.substring(1)), 1));
+    }
+
+    /** What a panel answers its Lua's isMouseOver goes through Hooks.uiMouseOver. */
+    private static Patch uiMouseOver(String owner) {
+        return new Patch(owner, "isMouseOver before its returns", classBytes -> CallSite.filterReturn(classBytes,
+                new CallSite.Method(owner, "isMouseOver", "()Ljava/lang/Boolean;"),
+                new CallSite.Method(HOOKS, "uiMouseOver", "(Ljava/lang/Boolean;)Ljava/lang/Boolean;")));
     }
 
     /** Where the game has a player's aim on the screen is passed through a hook with the player's number. */
