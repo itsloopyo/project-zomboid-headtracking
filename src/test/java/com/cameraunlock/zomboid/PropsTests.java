@@ -79,25 +79,55 @@ final class PropsTests {
         }
     }
 
+    /** The SHA-256 of each model's bytes in furniture.bin.gz, from its name's length to its plain shape's end, as props.py takes it. */
+    static Map<String, String> furnitureHashes() throws IOException, NoSuchAlgorithmException {
+        byte[] packed;
+        try (java.io.InputStream in = new java.util.zip.GZIPInputStream(Files.newInputStream(Path.of("src", "main", "resources", "models", "furniture.bin.gz")))) {
+            packed = in.readAllBytes();
+        }
+        java.nio.ByteBuffer data = java.nio.ByteBuffer.wrap(packed).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        check(data.getInt(0) == ('C' | 'U' << 8 | 'F' << 16 | 'M' << 24), "furniture.bin.gz is a file of models");
+        int count = data.getInt(8), at = 12;
+        Map<String, String> out = new HashMap<>();
+        for (int i = 0; i < count; i++) {
+            int start = at, size = data.get(at) & 0xff;
+            String name = new String(packed, at + 1, size, StandardCharsets.US_ASCII);
+            at += 1 + size + 28;
+            for (int shape = 0; shape < 2; shape++) {
+                int vertices = data.getInt(at), triangles = data.getInt(at + 4);
+                at += 8 + vertices * 26 + triangles * 6;
+            }
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(packed, start, at - start);
+            out.put(name, HexFormat.of().formatHex(digest.digest()));
+        }
+        check(at == packed.length, "furniture.bin.gz ends with its last model: " + at + " of " + packed.length);
+        return out;
+    }
+
     /**
      * Each batch's two files are what tools/models/props/BATCH.py builds with props.py: the script writes their SHA-256
-     * and that of what it wrote to tools/models/props/BATCH.built, with the bounds of each host as it built it. Blender
-     * builds them, and is no part of the tests, so a prop changed in a script and not built again shows here, and so does
-     * a host furniture.py now builds to another size than the batch stood its props on.
+     * and that of what it wrote to tools/models/props/BATCH.built, with the bounds of each host as it built it and the
+     * SHA-256 of furniture.bin.gz's model of it. Blender builds them, and is no part of the tests, so a prop changed in a
+     * script and not built again shows here, and so does a host furniture.py now builds otherwise than the batch stood its
+     * props on: another size, or the same size with another door or handle.
      */
     private static void eachBatchWasMadeByItsScriptsAsTheyAre() throws IOException, NoSuchAlgorithmException {
+        Map<String, String> shipped = furnitureHashes();
         for (String batch : Models.propBatches()) {
             Map<String, String> built = new HashMap<>();
             Map<String, float[]> hosts = new HashMap<>();
             for (String line : Files.readAllLines(SCRIPTS.resolve(batch + ".built"))) {
                 String[] named = line.split(" ");
                 if (named[0].equals("host")) {
-                    check(named.length == 8, batch + ".built gives a host its name and six bounds: " + line);
+                    check(named.length == 9, batch + ".built gives a host its name, six bounds and its model's hash: " + line);
                     float[] bounds = new float[6];
                     for (int k = 0; k < 6; k++) {
                         bounds[k] = Float.parseFloat(named[2 + k]);
                     }
                     hosts.put(named[1], bounds);
+                    check(named[8].equals(shipped.get(named[1])), batch + " stood its props on " + named[1] + " as furniture.bin.gz had it then, and it has "
+                            + "another model of it now (" + shipped.get(named[1]) + " against " + named[8] + "): run tools/models/props/" + batch + ".py again");
                 } else {
                     built.put(named[0], named[1]);
                 }

@@ -12,8 +12,9 @@ It writes two files into src/main/resources/props, the folder of the props' own 
     BATCH.txt      what each overlay makes of each piece, which Props.java reads and documents line by line
 
 and beside the script BATCH.built: the SHA-256 of the batch's script, of this one and of the two files it wrote, and
-each host as the batch built it, by the bounds of its model. PropsTests reads it to say the committed files are the
-scripts', and that each host is as big as the jar's model of it, the model the props stand on. The batch refuses to
+each host as the batch built it, by the bounds of its model and the SHA-256 of furniture.bin.gz's model of it. PropsTests
+reads it to say the committed files are the scripts', and that each host is the jar's model of it, the model the props
+stand on: a host whose door or handle furniture.py changes is found as surely as one built to another size. The batch refuses to
 write where a host it builds is not the size furniture.bin.gz has it.
 
 The build finds every batch by its pair of files, so a batch adds its own script and its own two files and edits
@@ -59,8 +60,9 @@ def bounds(model):
             + [max(v[0][axis] for v in model.vertices) - at[axis] for axis in range(3)])
 
 
-def furniture_bounds():
-    """Each model's bounds as furniture.bin.gz has them, by name."""
+def furniture_models():
+    """Each model furniture.bin.gz has, by name: its bounds, and the SHA-256 of its bytes there, from its name's length
+    to its plain shape's last triangle."""
     data = gzip.open(FURNITURE).read()
     if data[:4] != b"CUFM":
         raise SystemExit("%s is not a file of models" % FURNITURE)
@@ -68,14 +70,16 @@ def furniture_bounds():
     at = 12
     out = {}
     for _ in range(count):
+        start = at
         size = data[at]
         name = data[at + 1:at + 1 + size].decode("ascii")
         at += 1 + size
-        out[name] = list(struct.unpack_from("<6f", data, at))
+        bounds = list(struct.unpack_from("<6f", data, at))
         at += 28
         for _ in range(2):
             vertices, triangles = struct.unpack_from("<II", data, at)
             at += 8 + vertices * 26 + triangles * 6
+        out[name] = (bounds, hashlib.sha256(data[start:at]).hexdigest())
     return out
 
 
@@ -136,13 +140,13 @@ def write(batch, script, build, hosts):
     built_hosts = {name: make() for name, make in hosts.items()}
     origins = {name: origin(model) for name, model in built_hosts.items()}
     sizes = {name: bounds(model) for name, model in built_hosts.items()}
-    shipped = furniture_bounds()
+    shipped = furniture_models()
     for name, size in sorted(sizes.items()):
         if name not in shipped:
             raise SystemExit("the host %s is not in furniture.bin.gz" % name)
-        if max(abs(a - b) for a, b in zip(size, shipped[name])) > SAME_SIZE:
+        if max(abs(a - b) for a, b in zip(size, shipped[name][0])) > SAME_SIZE:
             raise SystemExit("the host %s as %s builds it is %s, and furniture.bin.gz has it %s: the batch is to build it as every() does"
-                             % (name, batch, _numbers(size), _numbers(shipped[name])))
+                             % (name, batch, _numbers(size), _numbers(shipped[name][0])))
 
     data = [b"CUFM", struct.pack("<II", 3, len(models))]
     by_name = {}
@@ -210,5 +214,5 @@ def write(batch, script, build, hosts):
             with open(named, "rb") as read:
                 out.write("%s %s\n" % (os.path.basename(named), hashlib.sha256(read.read()).hexdigest()))
         for name, size in sorted(sizes.items()):
-            out.write("host %s %s\n" % (name, _numbers(size)))
+            out.write("host %s %s %s\n" % (name, _numbers(size), shipped[name][1]))
     print("wrote %s" % built)
