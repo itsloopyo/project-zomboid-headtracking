@@ -150,6 +150,9 @@ final class ShaderTests {
                 + " textures, the most of any, and GlFloor.FRAGMENT_SAMPLERS says " + GlFloor.FRAGMENT_SAMPLERS + RAISING);
         Checks.check(components == GlFloor.FRAGMENT_UNIFORM_COMPONENTS, "the " + mostComponents + " fragment stage holds " + components
                 + " uniform components, the most of any, and GlFloor.FRAGMENT_UNIFORM_COMPONENTS says " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS + RAISING);
+        String requirement = "at least " + GlFloor.FRAGMENT_SAMPLERS + " texture units and " + GlFloor.FRAGMENT_UNIFORM_COMPONENTS + " uniform components";
+        Checks.check(Files.readString(Path.of("README.md")).contains(requirement),
+                "the README's Requirements must say \"" + requirement + "\", what GlFloor refuses first person below");
     }
 
     /** Whether a stage's source names the uniform the reflection calls name, or the array or the struct an element or a member of it is called after. */
