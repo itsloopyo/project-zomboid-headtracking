@@ -42,7 +42,7 @@ prop	storage_01_10	dresser	dressers_10_0	0.00000 0.02298 0.88000	over:2048:-0.21
 prop	storage_01_10	dresser	dressers_10_1	0.00000 0.02298 0.88000	over:64:0.24170,-0.09222,0.88000
 prop	storage_01_10	dresser	dressers_10_2	0.00000 0.02298 0.88000	plain
 swap	storage_01_11	dresser	dressers_dresser_open_2	0.00000 0.00000 0.00000
-prop	storage_01_11	dresser	dressers_dresser_drawer_2_14	0.00000 0.02298 0.58600	host
+prop	storage_01_11	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_11	dresser	dressers_11_0	0.00000 0.02298 0.88000	over:2048:0.13076,0.15345,0.88000
 swap	storage_01_12	dresser	dressers_dresser_open_2	0.00000 0.00000 0.00000
 prop	storage_01_12	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
@@ -107,7 +107,7 @@ prop	storage_01_23	dresser	dressers_23_2_ball	0.00000 0.02298 0.88000	over:13107
 prop	storage_01_23	dresser	dressers_23_3	0.00000 0.02298 0.88000	plain
 prop	storage_01_23	dresser	dressers_23_4	0.00000 0.02298 0.88000	plain
 swap	storage_01_32	dresser	dressers_dresser_open_2	0.00000 0.00000 0.00000
-prop	storage_01_32	dresser	dressers_dresser_drawer_2_18	0.00000 0.02298 0.58600	host
+prop	storage_01_32	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_32	dresser	dressers_32_0_pot	0.00000 0.02298 0.88000	over:2048:0.11491,0.03458,0.88000
 prop	storage_01_32	dresser	dressers_32_0_leaves	0.00000 0.02298 0.99045	over:512:0.46360,0.41497,0.88000
 swap	storage_01_33	dresser	dressers_dresser_open_0	0.00000 0.00000 0.00000
@@ -122,7 +122,7 @@ prop	storage_01_34	dresser	dressers_34_0	0.00000 0.02298 0.88000	over:64:-0.0277
 prop	storage_01_34	dresser	dressers_34_1	0.00000 0.02298 0.88000	plain
 prop	storage_01_34	dresser	dressers_34_2	0.00000 0.02298 0.88000	plain
 swap	storage_01_35	dresser	dressers_dresser_open_2	0.00000 0.00000 0.00000
-prop	storage_01_35	dresser	dressers_dresser_drawer_2_18	0.00000 0.02298 0.58600	host
+prop	storage_01_35	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_35	dresser	dressers_35_0	0.00000 0.02298 0.88000	over:64:-0.06736,-0.10807,0.88000
 prop	storage_01_35	dresser	dressers_35_1	0.00000 0.02298 0.88051	plain
 prop	storage_01_35	dresser	dressers_35_2	0.00000 0.02298 0.88000	over:64:0.32096,-0.10014,0.88000
@@ -136,7 +136,7 @@ prop	storage_01_41	dresser	dressers_41_0	0.00000 0.02298 0.87844	plain
 prop	storage_01_41	dresser	dressers_41_1	0.00000 0.02298 0.87812	plain
 prop	storage_01_41	dresser	dressers_41_2	0.00000 0.02298 0.87844	plain
 swap	storage_01_42	dresser	dressers_dresser_open_2	0.00000 0.00000 0.00000
-prop	storage_01_42	dresser	dressers_dresser_drawer_2_18	0.00000 0.02298 0.58600	host
+prop	storage_01_42	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_42	dresser	dressers_42_0	0.00000 0.02298 0.88000	over:2048:-0.05151,0.23270,0.88000
 prop	storage_01_43	dresser	dressers_43_0	0.00000 0.02298 0.87844	plain
 prop	storage_01_43	dresser	dressers_43_1_glass	0.00000 0.02298 0.88000	plain
@@ -145,25 +145,25 @@ prop	storage_01_43	dresser	dressers_43_1_blooms	0.00000 0.02298 1.36311	over:131
 prop	storage_01_43	dresser	dressers_43_2	0.00000 0.02298 0.87812	plain
 swap	storage_01_44	side_table	dressers_side_table_open_0	0.00000 0.00850 0.00000
 prop	storage_01_44	side_table	dressers_side_table_drawer_0_8	0.00000 0.00850 0.37300	host
-prop	storage_01_44	side_table	dressers_44_0_pot	0.00000 0.00850 0.50000	over:2048:-0.30108,0.49499,0.50000
-prop	storage_01_44	side_table	dressers_44_0_leaves	0.00000 0.00850 0.68852	over:512:-0.66850,0.86242,0.50000
-prop	storage_01_44	side_table	dressers_44_0_blooms	0.00000 0.00850 0.79000	over:131072:-0.56644,0.84200,0.50000
+prop	storage_01_44	side_table	dressers_44_0_pot	0.00000 0.00850 0.50000	over:2048:0.09084,0.10308,0.82000
+prop	storage_01_44	side_table	dressers_44_0_leaves	0.00000 0.00850 0.68852	over:512:-0.27658,0.47050,0.82000
+prop	storage_01_44	side_table	dressers_44_0_blooms	0.00000 0.00850 0.79000	over:131072:-0.17452,0.45009,0.82000
 prop	storage_01_45	side_table	dressers_45_0	0.00000 0.00850 0.49799	plain
 prop	storage_01_45	side_table	dressers_45_1	0.00000 0.00850 0.49758	plain
-prop	storage_01_46	side_table	dressers_46_0_pot	0.00000 0.00850 0.50000	over:2048:-0.33170,-0.30108,0.50000
-prop	storage_01_46	side_table	dressers_46_0_leaves	0.00000 0.00850 0.68849	over:512:-0.71953,-0.64809,0.50000
-prop	storage_01_46	side_table	dressers_46_0_blooms	0.00000 0.00850 0.78634	over:131072:-0.66850,-0.69912,0.50000
+prop	storage_01_46	side_table	dressers_46_0_pot	0.00000 0.00850 0.50000	over:2048:0.06022,0.09084,0.82000
+prop	storage_01_46	side_table	dressers_46_0_leaves	0.00000 0.00850 0.68849	over:512:-0.32761,-0.25617,0.82000
+prop	storage_01_46	side_table	dressers_46_0_blooms	0.00000 0.00850 0.78634	over:131072:-0.27658,-0.30720,0.82000
 prop	storage_01_47	side_table	dressers_47_0	0.00000 0.00850 0.49799	plain
 prop	storage_01_47	side_table	dressers_47_1	0.00000 0.00850 0.49758	plain
 swap	storage_01_48	dresser_mirror	dressers_dresser_mirror_open_2	0.00000 0.00000 0.00000
-prop	storage_01_48	dresser_mirror	dressers_dresser_drawer_2_16	0.00000 0.02298 0.58600	host
+prop	storage_01_48	dresser_mirror	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_48	dresser_mirror	dressers_48_0	0.00000 0.02298 0.88000	over:64:0.31303,0.05836,0.88000
 prop	storage_01_49	dresser_mirror	dressers_49_0	0.00000 0.02298 0.88000	over:64:-0.30511,0.00289,0.88000
 prop	storage_01_50	dresser_mirror	dressers_50_0_pot	0.00000 0.02298 0.88000	over:2048:0.17039,-0.02089,0.88000
 prop	storage_01_50	dresser_mirror	dressers_50_0_leaves	0.00000 0.02298 1.02636	over:512:-0.03566,-0.22693,0.88000
 prop	storage_01_50	dresser_mirror	dressers_50_0_blooms	0.00000 0.02298 1.10110	over:131072:-0.09906,-0.32203,0.88000
 swap	storage_01_51	dresser_mirror	dressers_dresser_mirror_open_2	0.00000 0.00000 0.00000
-prop	storage_01_51	dresser_mirror	dressers_dresser_drawer_2_16	0.00000 0.02298 0.58600	host
+prop	storage_01_51	dresser_mirror	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_51	dresser_mirror	dressers_51_0	0.00000 0.02298 0.87844	plain
 swap	storage_01_52	dresser	dressers_dresser_open_1	0.00000 0.00000 0.00000
 prop	storage_01_52	dresser	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
@@ -176,11 +176,11 @@ prop	storage_01_52	dresser_mirror	dressers_52_0	0.00000 0.02298 0.87844	plain
 prop	storage_01_52	dresser_mirror	dressers_52_1	0.00000 0.02298 0.88000	plain
 prop	storage_01_52	dresser_mirror	dressers_52_2	0.00000 0.02298 0.88051	plain
 swap	storage_01_53	dresser	dressers_dresser_open_1	0.00000 0.00000 0.00000
-prop	storage_01_53	dresser	dressers_dresser_drawer_1_14	0.00000 0.02298 0.33700	host
+prop	storage_01_53	dresser	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_53	dresser	dressers_53_0	0.00000 0.02298 0.87812	plain
 prop	storage_01_53	dresser	dressers_53_1	0.00000 0.02298 0.88000	over:64:0.14661,-0.02089,0.88000
 swap	storage_01_53	dresser_mirror	dressers_dresser_mirror_open_1	0.00000 0.00000 0.00000
-prop	storage_01_53	dresser_mirror	dressers_dresser_drawer_1_14	0.00000 0.02298 0.33700	host
+prop	storage_01_53	dresser_mirror	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_53	dresser_mirror	dressers_53_0	0.00000 0.02298 0.87812	plain
 prop	storage_01_53	dresser_mirror	dressers_53_1	0.00000 0.02298 0.88000	over:64:0.14661,-0.02089,0.88000
 swap	storage_01_54	dresser	dressers_dresser_open_0	0.00000 0.00000 0.00000
@@ -190,30 +190,30 @@ swap	storage_01_54	dresser_mirror	dressers_dresser_mirror_open_0	0.00000 0.00000
 prop	storage_01_54	dresser_mirror	dressers_dresser_drawer_0_8	0.00000 0.02298 0.08800	host
 prop	storage_01_54	dresser_mirror	dressers_54_0	0.00000 0.02298 0.88000	over:64:0.11491,-0.02882,0.88000
 swap	storage_01_55	dresser	dressers_dresser_open_1	0.00000 0.00000 0.00000
-prop	storage_01_55	dresser	dressers_dresser_drawer_1_14	0.00000 0.02298 0.33700	host
+prop	storage_01_55	dresser	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_55	dresser	dressers_55_0_pot	0.00000 0.02298 0.88000	over:2048:-0.01188,0.13760,0.88000
 prop	storage_01_55	dresser	dressers_55_0_leaves	0.00000 0.02298 0.99038	over:512:-0.30510,0.44667,0.88000
 swap	storage_01_55	dresser_mirror	dressers_dresser_mirror_open_1	0.00000 0.00000 0.00000
-prop	storage_01_55	dresser_mirror	dressers_dresser_drawer_1_14	0.00000 0.02298 0.33700	host
+prop	storage_01_55	dresser_mirror	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_55	dresser_mirror	dressers_55_0_pot	0.00000 0.02298 0.88000	over:2048:-0.01188,0.13760,0.88000
 prop	storage_01_55	dresser_mirror	dressers_55_0_leaves	0.00000 0.02298 0.99038	over:512:-0.30510,0.44667,0.88000
 swap	storage_01_56	dresser_mirror	dressers_dresser_mirror_open_1	0.00000 0.00000 0.00000
-prop	storage_01_56	dresser_mirror	dressers_dresser_drawer_1_16	0.00000 0.02298 0.33700	host
+prop	storage_01_56	dresser_mirror	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_56	dresser_mirror	dressers_56_0	0.00000 0.02298 0.87844	plain
 swap	storage_01_57	dresser_mirror	dressers_dresser_mirror_open_1	0.00000 0.00000 0.00000
-prop	storage_01_57	dresser_mirror	dressers_dresser_drawer_1_16	0.00000 0.02298 0.33700	host
+prop	storage_01_57	dresser_mirror	dressers_dresser_drawer_1_12	0.00000 0.02298 0.33700	host
 prop	storage_01_57	dresser_mirror	dressers_57_0_pot	0.00000 0.02298 0.88000	over:2048:-0.20209,-0.02089,0.88000
 prop	storage_01_57	dresser_mirror	dressers_57_0_leaves	0.00000 0.02298 0.99027	over:512:0.09906,-0.32203,0.88000
 swap	storage_01_58	dresser_mirror	dressers_dresser_mirror_open_02	0.00000 0.00000 0.00000
-prop	storage_01_58	dresser_mirror	dressers_dresser_drawer_0_16	0.00000 0.02298 0.08800	host
-prop	storage_01_58	dresser_mirror	dressers_dresser_drawer_2_16	0.00000 0.02298 0.58600	host
+prop	storage_01_58	dresser_mirror	dressers_dresser_drawer_0_12	0.00000 0.02298 0.08800	host
+prop	storage_01_58	dresser_mirror	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_58	dresser_mirror	dressers_58_0	0.00000 0.02298 0.88000	over:64:0.24963,-0.00504,0.88000
 swap	storage_01_59	dresser_mirror	dressers_dresser_mirror_open_2	0.00000 0.00000 0.00000
-prop	storage_01_59	dresser_mirror	dressers_dresser_drawer_2_16	0.00000 0.02298 0.58600	host
+prop	storage_01_59	dresser_mirror	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_59	dresser_mirror	dressers_59_0	0.00000 0.02298 0.88000	over:64:-0.28926,0.01874,0.88000
 swap	storage_01_60	dresser	dressers_dresser_open_02	0.00000 0.00000 0.00000
 prop	storage_01_60	dresser	dressers_dresser_drawer_0_6	0.00000 0.02298 0.08800	host
-prop	storage_01_60	dresser	dressers_dresser_drawer_2_14	0.00000 0.02298 0.58600	host
+prop	storage_01_60	dresser	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_60	dresser	dressers_60_0_glass	0.00000 0.02298 0.88000	plain
 prop	storage_01_60	dresser	dressers_60_0_leaves	0.00000 0.02298 1.15300	over:512:0.93908,0.70026,0.88000
 prop	storage_01_60	dresser	dressers_60_0_blooms	0.00000 0.02298 1.36346	over:131072:0.78059,0.60517,0.88000
@@ -221,7 +221,7 @@ prop	storage_01_60	dresser	dressers_60_1	0.00000 0.02298 0.87844	plain
 prop	storage_01_60	dresser	dressers_60_2	0.00000 0.02298 0.87812	plain
 swap	storage_01_60	dresser_mirror	dressers_dresser_mirror_open_02	0.00000 0.00000 0.00000
 prop	storage_01_60	dresser_mirror	dressers_dresser_drawer_0_6	0.00000 0.02298 0.08800	host
-prop	storage_01_60	dresser_mirror	dressers_dresser_drawer_2_14	0.00000 0.02298 0.58600	host
+prop	storage_01_60	dresser_mirror	dressers_dresser_drawer_2_12	0.00000 0.02298 0.58600	host
 prop	storage_01_60	dresser_mirror	dressers_60_0_glass	0.00000 0.02298 0.88000	plain
 prop	storage_01_60	dresser_mirror	dressers_60_0_leaves	0.00000 0.02298 1.15300	over:512:0.93908,0.70026,0.88000
 prop	storage_01_60	dresser_mirror	dressers_60_0_blooms	0.00000 0.02298 1.36346	over:131072:0.78059,0.60517,0.88000

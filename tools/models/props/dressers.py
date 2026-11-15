@@ -33,6 +33,9 @@ BATCH = "dressers"
 
 # The height of each piece's top in the piece's own model, as furniture.py builds it.
 TOP = {"dresser": 0.88, "dresser_mirror": 0.88, "bedside_cabinet": 0.66, "side_table": 0.5}
+# The height the picture paints each piece's top at, in the piece's model metres: the side table's sprite is a taller table than its model, so what stands
+# on it is placed over the sprite's top and set down on the model's.
+PICTURE_TOP = {"dresser": 0.88, "dresser_mirror": 0.88, "bedside_cabinet": 0.66, "side_table": 0.82}
 HOSTS = {
     "dresser": lambda: F.dresser(),
     "dresser_mirror": lambda: F.dresser_mirror(),
@@ -211,7 +214,7 @@ DRAWERS = {
     8: {0: 0.04},
     9: {1: 0.12},
     10: {0: 0.04, 1: 0.1, 2: 0.12},
-    11: {2: 0.14},
+    11: {2: 0.12},
     12: {2: 0.12},
     13: {0: 0.06},
     14: {1: 0.08},
@@ -220,24 +223,24 @@ DRAWERS = {
     17: {0: 0.06},
     20: {0: 0.04, 1: 0.08},
     21: {0: 0.06, 1: 0.1, 2: 0.12},
-    32: {2: 0.18},
+    32: {2: 0.12},
     33: {0: 0.08},
-    35: {2: 0.18},
+    35: {2: 0.12},
     40: {0: 0.1},
     41: {0: 0.08},
-    42: {2: 0.18},
+    42: {2: 0.12},
     44: {0: 0.08},
-    48: {2: 0.16},
-    51: {2: 0.16},
+    48: {2: 0.12},
+    51: {2: 0.12},
     52: {1: 0.12},
-    53: {1: 0.14},
+    53: {1: 0.12},
     54: {0: 0.08},
-    55: {1: 0.14},
-    56: {1: 0.16},
-    57: {1: 0.16},
-    58: {0: 0.16, 2: 0.16},
-    59: {2: 0.16},
-    60: {0: 0.06, 2: 0.14},
+    55: {1: 0.12},
+    56: {1: 0.12},
+    57: {1: 0.12},
+    58: {0: 0.12, 2: 0.12},
+    59: {2: 0.12},
+    60: {0: 0.06, 2: 0.12},
     61: {0: 0.1},
     64: {0: 0.08},
     65: {1: 0.05},
@@ -840,7 +843,7 @@ def build():
                     entries.append(Prop(name, host, leaf, "host"))
             at = origins[host]
             for k, (kind, box_px, facing, look, dyes) in enumerate(ITEMS.get(overlay, [])):
-                x, y, yaw = stand(facts, TOP[host], kind, box_px, facing)
+                x, y, yaw = stand(facts, PICTURE_TOP[host], kind, box_px, facing)
                 where = Vector((x + at.x, y + at.y, TOP[host]))
                 for suffix, builder, dyed, part in MADE[kind]:
                     model_name = "%s_%d_%d%s" % (BATCH, overlay, k, suffix)
@@ -854,8 +857,8 @@ def build():
                         entries.append(Prop(name, host, model_name, "plain"))
                     else:
                         u, v = dyes[part]
-                        px, py = lift(facts, u + 0.5, v + 0.5, TOP[host])
-                        entries.append(Prop(name, host, model_name, ("over", dyed, (px + at.x, py + at.y, TOP[host]))))
+                        px, py = lift(facts, u + 0.5, v + 0.5, PICTURE_TOP[host])
+                        entries.append(Prop(name, host, model_name, ("over", dyed, (px + at.x, py + at.y, PICTURE_TOP[host]))))
     return models, entries
 
 
