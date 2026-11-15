@@ -9,6 +9,7 @@ final class FaultsTests {
         Checks.run("aFaultInAPartsCodeSwitchesThatPartOffAndNotTheFile", FaultsTests::aFaultInAPartsCodeSwitchesThatPartOffAndNotTheFile);
         Checks.run("aFaultInCodeThePartsShareIsNoPartsWhateverCalledIt", FaultsTests::aFaultInCodeThePartsShareIsNoPartsWhateverCalledIt);
         Checks.run("aFaultFromABuildThreadIsTracedThroughWhatItCaused", FaultsTests::aFaultFromABuildThreadIsTracedThroughWhatItCaused);
+        Checks.run("aFaultInModelsIsThePropsWhereThePropsAsked", FaultsTests::aFaultInModelsIsThePropsWhereThePropsAsked);
         Checks.run("aFaultNoPartOwnsSwitchesNothingOff", FaultsTests::aFaultNoPartOwnsSwitchesNothingOff);
         Checks.run("onlyFaultsThatKeepComingAreTooMany", FaultsTests::onlyFaultsThatKeepComingAreTooMany);
     }
@@ -89,11 +90,54 @@ final class FaultsTests {
 
     private static void aFaultFromABuildThreadIsTracedThroughWhatItCaused() {
         mending(() -> {
-            RuntimeException wrapped = new IllegalStateException("the frame could not be drawn", thrownIn("AimBlur"));
-            wrapped.setStackTrace(new StackTraceElement[] {new StackTraceElement("java.util.concurrent.FutureTask", "report", null, 1)});
-            String off = Faults.switchOff(wrapped);
-            check(off != null && !Part.AIM_BLUR.on(), "a fault handed back from another thread is traced to the part in what caused it: " + off);
+            RuntimeException handedBack = thrownOnABuildThread(thrownIn("Props", "FurnishingBuilder", "WorldScene"));
+            check(handedBack.getStackTrace()[0].getClassName().endsWith(".BuildThreads") && handedBack.getCause() != null,
+                    "BuildThreads hands back what a build thread threw from its own frames: " + handedBack.getStackTrace()[0]);
+            String off = Faults.switchOff(handedBack);
+            check(off != null && !Part.FURNITURE_DECOR.on(), "a fault in the props on a build thread is the props', and not the frame's: " + off);
+            check(Faults.switchOff(thrownOnABuildThread(thrownIn("WorldScene", "Props"))) == null,
+                    "and a fault in the view's code on a build thread is still the view's, whatever called it");
+            check(Faults.switchOff(thrownOnABuildThread(new IllegalStateException("no mod frame"))) == null,
+                    "and one with none of the mod's code in it is no part's, BuildThreads' own frames aside");
         });
+    }
+
+    /** What BuildThreads throws on the thread that waits, where a build it ran on a build thread threw that. */
+    private static RuntimeException thrownOnABuildThread(RuntimeException thrown) {
+        java.util.concurrent.ExecutorService thread = BuildThreads.one("tests' build thread");
+        try {
+            BuildThreads.runAndWait(thread, () -> {
+                throw thrown;
+            });
+        } catch (RuntimeException handedBack) {
+            return handedBack;
+        } finally {
+            thread.shutdownNow();
+        }
+        throw new AssertionError("a build that threw on a build thread was waited on as if it had not");
+    }
+
+    private static void aFaultInModelsIsThePropsWhereThePropsAsked() {
+        mending(() -> {
+            check(Faults.switchOff(thrownIn("Models", "Props", "FurnishingBuilder")) == null && Part.FURNITURE_DECOR.on(),
+                    "a fault inside Models that no Models.get or has gave Props is the view's");
+            check(Faults.switchOff(thrownIn("Models", "FurnishingBuilder", "Props")) == null && Part.FURNITURE_DECOR.on(),
+                    "and a model the furniture asks for is the view's, though the props called the furniture");
+            String off = Faults.switchOff(asked("get", "Props"));
+            check(off != null && !Part.FURNITURE_DECOR.on(), "a model the props ask for and the jar has not is the props': " + off);
+        });
+        mending(() -> check(Faults.switchOff(asked("has", "Props")) != null && !Part.FURNITURE_DECOR.on(),
+                "and so is the jar's models failing to read when the props asked first"));
+    }
+
+    /** A fault thrown out of Models' method of that name, asked by that class. */
+    private static RuntimeException asked(String method, String by) {
+        RuntimeException thrown = new IllegalStateException("the jar's models have none called counters_x");
+        thrown.setStackTrace(new StackTraceElement[] {new StackTraceElement(PACKAGE + "Models", "all", null, 1),
+                new StackTraceElement(PACKAGE + "Models", method, null, 1), new StackTraceElement(PACKAGE + by, "add", null, 1),
+                new StackTraceElement(PACKAGE + "FurnishingBuilder", "addFurniture", null, 1),
+                new StackTraceElement("zombie.gameStates.IngameState", "renderFrameInternal", null, 1232)});
+        return thrown;
     }
 
     private static void aFaultNoPartOwnsSwitchesNothingOff() {

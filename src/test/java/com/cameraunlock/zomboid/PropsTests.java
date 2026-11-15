@@ -180,16 +180,21 @@ final class PropsTests {
                         continue;
                     }
                     if (piece.stocked || piece.displayCase) {
-                        check(!Props.makes(overlay.getKey(), piece), batch + ": " + over.tile() + " holds goods of its own, and " + overlay.getKey() + " is not made on it");
+                        check(!Props.makes(overlay.getKey(), piece, piece.model), batch + ": " + over.tile() + " holds goods of its own, and " + overlay.getKey()
+                                + " is not made on it");
                         continue;
                     }
                     pieces++;
-                    check(hosts.contains(piece.model.name), batch + ": " + overlay.getKey() + " lies over " + over.tile() + ", which is " + piece.model.name
-                            + ", and it is made on " + hosts);
-                    if (piece.withBasin != null) {
-                        check(hosts.contains(piece.withBasin.name), batch + ": and over " + over.tile() + " with its basin, " + piece.withBasin.name);
+                    // Every model addFurniture may draw the piece as: with its basin or without, and lit as a burn barrel or not.
+                    for (boolean basin : new boolean[] {false, true}) {
+                        for (boolean burning : new boolean[] {false, true}) {
+                            Models.Model drawn = FurnishingBuilder.drawnAs(piece, basin, burning);
+                            check(hosts.contains(drawn.name), batch + ": " + overlay.getKey() + " lies over " + over.tile() + ", which may be drawn as "
+                                    + drawn.name + ", and it is made on " + hosts);
+                            check(Props.makes(overlay.getKey(), piece, drawn), "so the game's picture of " + overlay.getKey() + " is not stood over "
+                                    + over.tile() + " drawn as " + drawn.name);
+                        }
                     }
-                    check(Props.makes(overlay.getKey(), piece), "so the game's picture of " + overlay.getKey() + " is not stood over " + over.tile());
                 }
             }
         }
@@ -329,7 +334,10 @@ final class PropsTests {
         half.partnerX = -1;
         half.follows = true;
         zombie.iso.sprite.IsoSpriteManager.instance.namedMap.put("fixtures_counters_01_3", counter);
-        check(Props.makes("fixtures_overlay_counters_01_2", half), "a square tied to a counter is the counter, and its overlay is made on it");
+        check(Props.makes("fixtures_overlay_counters_01_2", half, null), "a square tied to a counter is the counter, and its overlay is made on it");
+        Furniture counterPiece = Furniture.known(counter);
+        check(!Props.makes("fixtures_overlay_counters_01_2", counterPiece, Models.get("burn_barrel")),
+                "and a piece is asked about as the model it is drawn as, not the model it is known by");
         zombie.iso.sprite.IsoSpriteManager.instance.namedMap.remove("fixtures_counters_01_3");
     }
 

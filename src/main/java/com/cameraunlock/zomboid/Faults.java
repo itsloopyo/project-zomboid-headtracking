@@ -45,34 +45,70 @@ final class Faults {
 
     /**
      * Switches off the part whose code threw: the part the class nearest the throw of the mod's
-     * own is made of, in the throw or, where that has none of the mod's classes, in what caused
-     * it, as a build thread's fault comes back wrapped. Null where that class is no part's, or a
-     * part's that is off already and threw all the same: the fault is then the view's.
+     * own is made of, in the throw or, where that has none of the mod's classes or is BuildThreads
+     * handing back what it caused from another thread, in what caused it. Null where that class is
+     * no part's, or a part's that is off already and threw all the same: the fault is then the view's.
      *
      * @return the part's name on the options screen
      */
     static synchronized String switchOff(Throwable thrown) {
         for (Throwable at = thrown; at != null; at = at.getCause() == at ? null : at.getCause()) {
-            for (StackTraceElement frame : at.getStackTrace()) {
-                String name = frame.getClassName();
-                if (!name.startsWith(PACKAGE)) {
-                    continue;
-                }
-                int inner = name.indexOf('$', PACKAGE.length());
-                Part part = PARTS.get(name.substring(PACKAGE.length(), inner < 0 ? name.length() : inner));
-                if (part == null || !part.on()) {
-                    return null;
-                }
-                part.broke();
-                String label = OptionsLayout.label(part.key);
-                broken.add(label);
-                int last = broken.size() - 1;
-                names = last == 0 ? label : String.join(", ", broken.subList(0, last)) + " and " + label;
-                switchedOff++;
-                return label;
+            String owner = owner(at.getStackTrace());
+            if (owner == null || owner.equals(HANDS_BACK) && at.getCause() != null) {
+                continue;
             }
+            Part part = PARTS.get(owner);
+            if (part == null || !part.on()) {
+                return null;
+            }
+            part.broke();
+            String label = OptionsLayout.label(part.key);
+            broken.add(label);
+            int last = broken.size() - 1;
+            names = last == 0 ? label : String.join(", ", broken.subList(0, last)) + " and " + label;
+            switchedOff++;
+            return label;
         }
         return null;
+    }
+
+    /** The class that rethrows on the logic thread what a build thread threw, with it as the cause. */
+    private static final String HANDS_BACK = "BuildThreads";
+    /** The class that holds every model, the props' among them: what Props asks of it wrongly is Props' fault. */
+    private static final String MODELS = "Models";
+
+    /**
+     * The class of the mod's, outside its inner classes, nearest the throw in a stack, or null where it has none. A
+     * fault in Models.get or Models.has is Props' where Props asked: the models are the furniture's and the props', and
+     * a batch naming a model the jar has not, or one the jar cannot read, is the props'.
+     */
+    private static String owner(StackTraceElement[] stack) {
+        for (int i = 0; i < stack.length; i++) {
+            String owner = outer(stack[i].getClassName());
+            if (owner == null) {
+                continue;
+            }
+            if (owner.equals(MODELS)) {
+                int last = i;
+                while (last + 1 < stack.length && MODELS.equals(outer(stack[last + 1].getClassName()))) {
+                    last++;
+                }
+                String method = stack[last].getMethodName();
+                if (last + 1 < stack.length && "Props".equals(outer(stack[last + 1].getClassName())) && (method.equals("get") || method.equals("has"))) {
+                    return "Props";
+                }
+            }
+            return owner;
+        }
+        return null;
+    }
+
+    private static String outer(String name) {
+        if (!name.startsWith(PACKAGE)) {
+            return null;
+        }
+        int inner = name.indexOf('$', PACKAGE.length());
+        return name.substring(PACKAGE.length(), inner < 0 ? name.length() : inner);
     }
 
     /** How many parts faults have switched off: a view that has said fewer has more to say. */
