@@ -123,6 +123,10 @@ final class FurnishingBuilder {
     /** The light of the squares a piece over more than one stands on, at the block's outer corners: see Models.Instances.span. */
     private final SpriteGeometry.Frame blockFrame = new SpriteGeometry.Frame();
     private final float[] footCorner = new float[2];
+    /** The overlays over the piece being stood, and where it stands for its props: see Props. */
+    private final List<String> overlayNames = new ArrayList<>();
+    private final Props.Stand propStand = new Props.Stand();
+    private final float[] swapAt = new float[3];
     /** How far, in tiles, a model may reach over the next square and still be lit as one standing on its own: a hair over its edge is not standing there. */
     private static final float OVERHANG = 0.1f;
     private final float[] partAt = new float[4], wholeAt = new float[4];
@@ -1005,6 +1009,7 @@ final class FurnishingBuilder {
             return true;
         }
         int chunkX = x - build.waterLocalX, chunkY = y - build.waterLocalY;
+        int objectX = x, objectY = y, objectZ = z;
         x += readyOrigin[0];
         y += readyOrigin[1];
         // A street lamp's head drawn a level off the post it tops stands on the post: see StreetLampPlaces.
@@ -1028,6 +1033,14 @@ final class FurnishingBuilder {
         if (burning && model.name.equals("barrel")) {
             // A drum lit as a burn barrel has had its top cut out: the fire is drawn burning in it.
             model = Models.get("burn_barrel");
+        }
+        // What the game lays over the piece that a batch of props makes: a cupboard whose door the game paints ajar is
+        // drawn with that door off, its open door a prop.
+        Models.Model host = model;
+        List<String> overlays = Props.overlaysOn(object, overlayNames);
+        Props.Dressing swap = overlays.isEmpty() ? null : Props.swapOf(overlays, host);
+        if (swap != null) {
+            model = Models.get(swap.swap);
         }
         build.building.plain = false;
         float centreX = piece.centreX, centreY = piece.centreY;
@@ -1074,6 +1087,17 @@ final class FurnishingBuilder {
             float clear = clearOfLogs(piece, model, x, y, z, centreX, centreY);
             centreX += front[0] * clear;
             centreY += front[1] * clear;
+        }
+        // The props stand where the host would; a model swapped for it, by its own origin there.
+        float hostX = centreX, hostY = centreY, hostFoot = foot;
+        if (swap != null) {
+            swapAt[0] = centreX;
+            swapAt[1] = centreY;
+            swapAt[2] = foot;
+            Props.moveToSwap(swap, piece.turns, piece.scale, piece.scaleUp, swapAt);
+            centreX = swapAt[0];
+            centreY = swapAt[1];
+            foot = swapAt[2];
         }
         // A piece whose model stands over more than one square is lit across those of them in the chunk, whose light the
         // chunk has read, from the first of them. A model off its own square, hung on the one beside it, can stand wholly
@@ -1155,6 +1179,32 @@ final class FurnishingBuilder {
             if (showing != Screens.DARK) {
                 addLitScreen(piece, model, Screens.held(set, Own.pictures(build.playerIndex) ? showing : Screens.BARS, piece.blackAndWhite), piece.blackAndWhite, x, y, centreX, centreY, foot);
             }
+        }
+        // Last, as what is added before them asks after the piece last added.
+        if (!overlays.isEmpty()) {
+            Props.Stand stand = propStand;
+            stand.light = light;
+            stand.litX = litX;
+            stand.litY = litY;
+            stand.across = across;
+            stand.down = down;
+            stand.objectX = objectX;
+            stand.objectY = objectY;
+            stand.objectZ = objectZ;
+            stand.centreX = x + hostX;
+            stand.centreY = y + hostY;
+            stand.foot = hostFoot;
+            stand.turns = piece.turns;
+            stand.scale = piece.scale;
+            stand.scaleUp = piece.scaleUp;
+            stand.dyeTexture = dyeTexture;
+            stand.dyed = piece.dyed;
+            stand.alsoDyed = alsoDyed;
+            stand.dyeU = dyeU;
+            stand.dyeV = dyeV;
+            stand.alsoU = alsoU;
+            stand.alsoV = alsoV;
+            Props.add(build, object, overlays, host.name, stand, build.frame.scale);
         }
         return true;
     }
@@ -1255,14 +1305,19 @@ final class FurnishingBuilder {
      * Whether what the game lays over a piece the mod stands its model of is to stand on the piece as the game's own
      * picture: the things the game sets out at random over a piece (TileOverlays) and what it paints a container holding
      * (ContainerOverlays), where the mod makes nothing of its own for them. A stocked fitting's goods and a case's cakes
-     * are that painting made, and anything else the game lays over a piece, a set's lit screen, has a way of its own or none.
-     * A piece the game gives no surface, a bath or a filing cabinet, has no top to stand it on, and it stands on none.
+     * are that painting made, as are the props of a batch (Props), and anything else the game lays over a piece, a set's lit
+     * screen, has a way of its own or none. A piece the game gives no surface, a bath or a filing cabinet, has no top to
+     * stand a card on, and it stands on none: a batch's props stand on such a piece's model wherever its script puts them.
      *
      * The piece under it where it is to stand, or null where it is not.
      */
     static Furniture standsOver(IsoSprite under, IsoSprite over) {
         Furniture piece = Furniture.known(under);
         if (piece == null || piece.stocked || piece.displayCase || Surfaces.surface(under.getProperties()) <= 0) {
+            return null;
+        }
+        // Made by a batch of props, which addFurniture stood with the piece.
+        if (Props.makes(over.getName(), piece)) {
             return null;
         }
         // Both are read only: each map is filled as the game loads its Lua, before any world is built.

@@ -253,33 +253,56 @@ final class Models {
 
     private Models() {}
 
-    /** The model of that name, read from the jar the first time one is asked for, once whichever threads ask. */
+    /**
+     * The model of that name, read from the jar the first time one is asked for, once whichever threads ask: the
+     * furniture's, then the props' of every batch beside it (Props.batches).
+     */
     static Model get(String name) {
         Map<String, Model> models = loaded;
         if (models == null) {
             synchronized (Models.class) {
                 models = loaded;
                 if (models == null) {
-                    try (InputStream packed = Models.class.getResourceAsStream(RESOURCE)) {
-                        if (packed == null) {
-                            throw new IllegalStateException("the jar has no " + RESOURCE);
-                        }
-                        loaded = models = read(packed);
-                    } catch (IOException e) {
-                        throw new UncheckedIOException(RESOURCE + " could not be read", e);
+                    models = new LinkedHashMap<>();
+                    int[] at = new int[2];
+                    readResource(RESOURCE, models, at);
+                    for (String batch : Props.batches()) {
+                        readResource(Props.modelsOf(batch), models, at);
                     }
+                    loaded = models;
                 }
             }
         }
         Model model = models.get(name);
         if (model == null) {
-            throw new IllegalStateException(RESOURCE + " has no model called " + name);
+            throw new IllegalStateException("the jar's models have none called " + name);
         }
         return model;
     }
 
+    private static void readResource(String resource, Map<String, Model> into, int[] at) {
+        try (InputStream packed = Models.class.getResourceAsStream(resource)) {
+            if (packed == null) {
+                throw new IllegalStateException("the jar has no " + resource);
+            }
+            read(packed, into, at);
+        } catch (IOException e) {
+            throw new UncheckedIOException(resource + " could not be read", e);
+        }
+    }
+
     /** Reads every model out of a packed file, by name. */
     static Map<String, Model> read(InputStream packed) throws IOException {
+        Map<String, Model> models = new LinkedHashMap<>();
+        read(packed, models, new int[2]);
+        return models;
+    }
+
+    /**
+     * Reads every model out of a packed file into models, by name, the first of them at the vertex and the corner at
+     * holds of the buffer of every model, and leaves at at the next.
+     */
+    static void read(InputStream packed, Map<String, Model> models, int[] at) throws IOException {
         ByteBuffer in = ByteBuffer.wrap(new GZIPInputStream(packed).readAllBytes()).order(ByteOrder.LITTLE_ENDIAN);
         need(in, 12, "its header");
         if (in.getInt() != MAGIC) {
@@ -290,8 +313,7 @@ final class Models {
             throw new IOException("models of format " + version + ", and this reads format " + VERSION);
         }
         int count = in.getInt();
-        Map<String, Model> models = new LinkedHashMap<>();
-        int start = 0, from = 0;
+        int start = at[0], from = at[1];
         for (int i = 0; i < count; i++) {
             need(in, 1, "a model's name");
             byte[] letters = new byte[in.get() & 0xff];
@@ -314,7 +336,8 @@ final class Models {
         if (in.hasRemaining()) {
             throw new IOException(in.remaining() + " bytes follow the last model");
         }
-        return models;
+        at[0] = start;
+        at[1] = from;
     }
 
     private static Shape shape(ByteBuffer in, String name) throws IOException {
