@@ -844,6 +844,9 @@ def build():
             at = origins[host]
             for k, (kind, box_px, facing, look, dyes) in enumerate(ITEMS.get(overlay, [])):
                 x, y, yaw = stand(facts, PICTURE_TOP[host], kind, box_px, facing)
+                # The side table's picture paints things as wide as its top, and the model's top is smaller: they stand no nearer its edge than this.
+                if host == "side_table":
+                    x, y = max(-0.2, min(0.2, x)), max(-0.2, min(0.2, y))
                 where = Vector((x + at.x, y + at.y, TOP[host]))
                 for suffix, builder, dyed, part in MADE[kind]:
                     model_name = "%s_%d_%d%s" % (BATCH, overlay, k, suffix)
