@@ -1467,34 +1467,77 @@ public final class Hooks {
         }
     }
 
-    /** In place of the game's writing of what a person has said. */
-    public static void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines) {
+    /**
+     * In place of the game's writing of what a person has said. The viewer's own, in first person,
+     * is left out under NameTagsAtHeads, and a radio they carry is written by SetCaptions under
+     * CaptionsOverSets, whichever of the two is on: see Agent.speechPatches.
+     */
+    public static void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines, IsoGameCharacter speaker) {
         View view = View.of(playerIndex);
-        if (view == null) {
+        if (view == null || speaker != view.player() || !view.firstPerson.coversTheGamesView()) {
             speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
-        } else {
-            view.nameTags.writeSpeech(speech, playerIndex, x, y, ignoreRadioLines);
+            return;
+        }
+        boolean carried = !ignoreRadioLines && Part.CAPTIONS_OVER_SETS.running();
+        if (!Part.NAME_TAGS_AT_HEADS.running()) {
+            speech.renderBatched(playerIndex, x, y, ignoreRadioLines || carried);
+        }
+        if (carried) {
+            try {
+                view.setCaptions.writeCarriedRadio(speech, playerIndex);
+            } catch (RuntimeException | LinkageError thrown) {
+                if (!setCaptionsOff(thrown)) {
+                    throw thrown;
+                }
+            }
         }
     }
 
     /** In place of the game's writing of what a television or a radio is playing. */
     public static void writeOverSet(ChatElement lines, int playerIndex, int x, int y, IsoWaveSignal set) {
         View view = View.of(playerIndex);
-        if (view == null) {
+        if (view == null || !Part.CAPTIONS_OVER_SETS.on()) {
             lines.renderBatched(playerIndex, x, y);
-        } else {
+            return;
+        }
+        try {
             view.setCaptions.writeOverSet(lines, playerIndex, x, y, set);
+        } catch (RuntimeException | LinkageError thrown) {
+            if (!setCaptionsOff(thrown)) {
+                throw thrown;
+            }
+            lines.renderBatched(playerIndex, x, y);
         }
     }
 
     /** In place of the game's writing of what a car radio is playing. */
     public static void writeOverCar(ChatElement lines, int playerIndex, int x, int y, BaseVehicle car) {
         View view = View.of(playerIndex);
-        if (view == null) {
+        if (view == null || !Part.CAPTIONS_OVER_SETS.on()) {
             lines.renderBatched(playerIndex, x, y);
-        } else {
-            view.setCaptions.writeOverCar(lines, playerIndex, x, y, car);
+            return;
         }
+        try {
+            view.setCaptions.writeOverCar(lines, playerIndex, x, y, car);
+        } catch (RuntimeException | LinkageError thrown) {
+            if (!setCaptionsOff(thrown)) {
+                throw thrown;
+            }
+            lines.renderBatched(playerIndex, x, y);
+        }
+    }
+
+    /**
+     * Whether a fault in writing a set's lines has switched CaptionsOverSets off until the game
+     * restarts (Faults), and the game is to write them as it does without the mod. False for a
+     * fault that is not SetCaptions', which is thrown on.
+     */
+    private static boolean setCaptionsOff(Throwable thrown) {
+        String off = Faults.switchOff(thrown);
+        if (off != null) {
+            Log.error(off + " is off until the game restarts: it threw as it wrote what a set is playing, and the game writes it as it does without the mod", thrown);
+        }
+        return off != null;
     }
 
     /** In place of the game's asking what its own view has under the pointer, to find whose name to write. */

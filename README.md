@@ -645,8 +645,9 @@ GranTurismoToneMapping=true
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
 NameTagsAtHeads=true
 ; true: in first person, the lines a television, a radio or a car radio shows of what it is playing sit over the
-; set in the picture, and those of a radio in your hands or of the car you sit in low in the middle, over the
-; dashboard. false: the game shows a set's where its own view puts them, and a radio in your hands shows none.
+; set in the picture, and those of a radio you carry or of the car you sit in low in the middle, over the panels
+; along the bottom. false: the game shows a set's where its own view puts them, and a radio you carry's with
+; your own speech, which NameTagsAtHeads hides.
 ; Takes effect when the game next starts. When off, the mod does not change the game's own code for this.
 CaptionsOverSets=true
 ; true: in first person, a line is drawn round what the Interact key would act on, and round what the game highlights

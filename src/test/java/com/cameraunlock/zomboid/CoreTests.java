@@ -798,7 +798,7 @@ public final class CoreTests {
     }
 
     /** The sets of patches first person alone uses, which FirstPersonEnabled off leaves out while lamps and glass still break. */
-    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, set captions, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
+    private static final String FIRST_PERSON_SETS = "torch, first person, ragdolls, item models, fine skins, shot, thunder, name tags, speech, set captions, covered, screen grey, far vehicles, loading, car physics, chunk marks, "
             + "window marks, unmarked changes, hushed marks, hearing, waiting composites, spotting, held map";
 
     /** Those and the sets first person shares with TalkingMouths, which the file has off: FirstPersonEnabled off leaves all of them out. */
@@ -859,6 +859,10 @@ public final class CoreTests {
             boolean part = Arrays.stream(Part.values()).anyMatch(each -> each.key.equals(row[0]));
             check(!part || switchedOff(next).contains(row[0] + " off"), "and the log says it is off");
         }
+        edit(saved.replace("\r\nNameTagsAtHeads=true\r\n", "\r\nNameTagsAtHeads=false\r\n").replace("\r\nCaptionsOverSets=true\r\n", "\r\nCaptionsOverSets=false\r\n"));
+        String speechless = nextStart("name-tags-and-set-captions-off");
+        check(speechless.contains("left out: name tags, speech, set captions" + System.lineSeparator()),
+                "the viewer's own speech is written through the mod while either the name tags or the set captions are on, and not with both off: " + leftOutLine(speechless));
         edit(saved.replace("FirstPersonEnabled=true", "FirstPersonEnabled=false").replace("ShotsBreakLamps=true", "ShotsBreakLamps=false")
                 .replace("ShotsBreakGlass=true", "ShotsBreakGlass=false").replace("BlastHoles=true", "BlastHoles=false").replace("BulletHoles=true", "BulletHoles=false"));
         String next = nextStart("first-person-and-breaking-off");

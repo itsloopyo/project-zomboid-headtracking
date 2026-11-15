@@ -108,10 +108,17 @@ final class Links {
     static final Field CONTAINER_OVERLAY_ENTRIES = new Field(CONTAINER_OVERLAYS + "$ContainerOverlay", "entries", "Ljava/util/ArrayList;");
     static final Field CONTAINER_OVERLAY_MANY = new Field(CONTAINER_OVERLAYS + "$ContainerOverlayEntry", "manyItems", "Ljava/lang/String;");
     static final Field CONTAINER_OVERLAY_FEW = new Field(CONTAINER_OVERLAYS + "$ContainerOverlayEntry", "fewItems", "Ljava/lang/String;");
+    private static final String CHAT = "zombie/chat/ChatElement", CHAT_LINES = CHAT + "$PlayerLines";
+    /** The lines a set or a person is showing to each player and how they fade, which SetCaptions writes itself for a radio the player carries and a car they sit in. */
+    static final Field CHAT_PLAYER_LINES = new Field(CHAT, "playerLines", "[L" + CHAT_LINES + ";");
+    static final Field CHAT_HISTORY = new Field(CHAT, "historyVal", "F");
+    static final Field CHAT_WRITTEN = new Field(CHAT_LINES, "chatLines", "[Lzombie/ui/TextDrawObject;");
+    static final Field CHAT_SHOWN_FOR = new Field(CHAT_LINES, "lineDisplayTime", "I");
     static final List<Field> REFLECTED = List.of(BUFFER_HANDLE, BUFFER_ELEMENTS, BUFFER_FORMAT, HANDLE_BUFFER, HANDLE_STRIDE, BODY_PICTURE, OUTLINED, GROUND_MARKERS, HOMING_POINTS, NODE_LAYER,
             ITEM_MODEL, ITEM_TRANSFORM, ITEM_TINT_R, ITEM_TINT_G, ITEM_TINT_B, ITEM_TINT_MASK,
             DOOR_SHUT, THUMPABLE_SHUT, DOUBLE_NORTH_OPENS, DOUBLE_WEST_OPENS, BODY_PICTURE_ENTRY, POSED_STATES, POSED_PARTS,
-            CONTAINER_OVERLAY_MAP, CONTAINER_OVERLAY_ENTRIES, CONTAINER_OVERLAY_MANY, CONTAINER_OVERLAY_FEW);
+            CONTAINER_OVERLAY_MAP, CONTAINER_OVERLAY_ENTRIES, CONTAINER_OVERLAY_MANY, CONTAINER_OVERLAY_FEW,
+            CHAT_PLAYER_LINES, CHAT_HISTORY, CHAT_WRITTEN, CHAT_SHOWN_FOR);
 
     private final Function<String, byte[]> classBytes;
     private final Map<String, Optional<ClassModel>> models = new HashMap<>();

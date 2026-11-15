@@ -615,6 +615,12 @@ public final class Agent {
                 : also(off(Part.FIRST_PERSON), DevBuild.ON ? "were HiddenWallDecor, Rewind30s, ShotsBreakGlass, BlastHoles and BulletHoles"
                         : "were HiddenWallDecor, ShotsBreakGlass, BlastHoles and BulletHoles");
         Supplier<String> splitScreenOff = () -> SplitScreen.row() != SplitScreen.VERTICAL ? null : "SplitScreen is Vertical, the game's own";
+        // The viewer's own speech is left out by the name tags, and a radio they carry written by the set captions.
+        Supplier<String> speechOff = () -> {
+            String firstPerson = off(Part.FIRST_PERSON);
+            return firstPerson != null || off(Part.NAME_TAGS_AT_HEADS) == null || off(Part.CAPTIONS_OVER_SETS) == null ? firstPerson
+                    : Part.NAME_TAGS_AT_HEADS.key + " and " + Part.CAPTIONS_OVER_SETS.key + " were off as the game started";
+        };
         Supplier<String> in = () -> null;
         return List.of(
                 new PatchSet("base", new PatchTransformer(basePatches()), in),
@@ -634,6 +640,7 @@ public final class Agent {
                 new PatchSet("impacts", impacts, impactsOff),
                 new PatchSet("model head", modelHead, in),
                 new PatchSet("name tags", nameTags, offNow(Part.FIRST_PERSON, Part.NAME_TAGS_AT_HEADS)),
+                new PatchSet("speech", new PatchTransformer(speechPatches()), speechOff),
                 new PatchSet("set captions", new PatchTransformer(setCaptionPatches()), offNow(Part.FIRST_PERSON, Part.CAPTIONS_OVER_SETS)),
                 new PatchSet("cached lookups", new PatchTransformer(gameFixPatches()), offNow(Part.CACHED_GAME_LOOKUPS)),
                 new PatchSet("hang fix", new PatchTransformer(hangFixPatches()), offNow(Part.BURNT_BUILDING_FREEZE_FIX)),
@@ -2100,12 +2107,23 @@ public final class Agent {
                 new Patch(character, "renderlast writing the name", classBytes -> CallSite.replaceEach(classBytes, writing,
                         new CallSite.Method("zombie/ui/TextDrawObject", "AddBatchedDraw", "(DDZ)V"),
                         new CallSite.Method(tags, "writeName", "(Lzombie/ui/TextDrawObject;DDZ)V"), 1)),
-                new Patch(character, "renderlast writing the speech", classBytes -> CallSite.replaceEach(classBytes, writing,
-                        new CallSite.Method("zombie/chat/ChatElement", "renderBatched", "(IIIZ)V"),
-                        new CallSite.Method(tags, "writeSpeech", "(Lzombie/chat/ChatElement;IIIZ)V"), 1)),
                 new Patch(character, "renderlast asking what is under the pointer", classBytes -> CallSite.replaceEach(classBytes, writing,
                         new CallSite.Method(picker, "ContextPick", "(II)L" + picker + "$ClickObject;"),
                         new CallSite.Method(tags, "underPointer", "(L" + picker + ";II)L" + picker + "$ClickObject;"), 1)));
+    }
+
+    /**
+     * Apart from the name tags, as CaptionsOverSets also writes through it: without it, in first
+     * person, the viewer's own speech, with the lines of a radio they carry, is written where the
+     * game's own view has them. The writing is handed the speaker, so the viewer's own can be told.
+     */
+    private static List<Patch> speechPatches() {
+        String character = "zombie/characters/IsoGameCharacter";
+        return List.of(new Patch(character, "renderlast writing the speech", classBytes -> CallSite.replaceEach(classBytes,
+                new CallSite.Method(character, "renderlast", "()V"), new CallSite.Method("zombie/chat/ChatElement", "renderBatched", "(IIIZ)V"), code -> {
+                    code.aload(0);
+                    code.invokestatic(ClassDesc.ofInternalName(HOOKS), "writeSpeech", MethodTypeDesc.ofDescriptor("(Lzombie/chat/ChatElement;IIIZL" + character + ";)V"));
+                }, 1)));
     }
 
     /**

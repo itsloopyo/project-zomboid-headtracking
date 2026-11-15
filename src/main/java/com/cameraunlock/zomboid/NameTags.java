@@ -2,7 +2,6 @@ package com.cameraunlock.zomboid;
 
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
-import zombie.chat.ChatElement;
 import zombie.iso.IsoCamera;
 import zombie.iso.IsoCell;
 import zombie.iso.IsoGridSquare;
@@ -93,18 +92,6 @@ public final class NameTags {
             return;
         }
         name.AddBatchedDraw(x, placed ? placedY - NAME_HIGH : y, outlined);
-    }
-
-    /**
-     * Called in place of the game's writing of what a person has said. Of the viewer's own, only
-     * what a radio in their hands plays is written, by SetCaptions under CaptionsOverSets.
-     */
-    public void writeSpeech(ChatElement speech, int playerIndex, int x, int y, boolean ignoreRadioLines) {
-        if (!own) {
-            speech.renderBatched(playerIndex, x, y, ignoreRadioLines);
-        } else if (!ignoreRadioLines && Part.CAPTIONS_OVER_SETS.running()) {
-            view.setCaptions.writeOwnRadio(speech, playerIndex);
-        }
     }
 
     /**
