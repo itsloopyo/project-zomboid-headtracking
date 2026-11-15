@@ -11,3 +11,4 @@
 config/CameraUnlock.ini -text
 *.bc binary
 *.bin binary
+*.gz binary
