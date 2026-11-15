@@ -2,18 +2,26 @@ package com.cameraunlock.zomboid;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import org.joml.Vector3f;
 import zombie.GameTime;
+import zombie.Lua.LuaEventManager;
 import zombie.VirtualZombieManager;
+import zombie.ZomboidFileSystem;
 import zombie.characters.IsoGameCharacter;
 import zombie.characters.IsoPlayer;
 import zombie.characters.IsoZombie;
 import zombie.characters.WornItems.WornItems;
 import zombie.core.Core;
+import zombie.core.Translator;
 import zombie.erosion.ErosionMain;
 import zombie.erosion.season.ErosionSeason;
+import zombie.gameStates.ChooseGameInfo;
 import zombie.input.GameKeyboard;
 import zombie.inventory.InventoryItem;
 import zombie.inventory.InventoryItemFactory;
@@ -22,13 +30,17 @@ import zombie.inventory.types.HandWeapon;
 import zombie.inventory.types.WeaponPart;
 import zombie.iso.IsoChunk;
 import zombie.iso.IsoChunkMap;
+import zombie.iso.IsoDirections;
 import zombie.iso.IsoGridSquare;
 import zombie.iso.IsoWorld;
 import zombie.iso.objects.IsoFireManager;
 import zombie.iso.weather.ClimateManager;
 import zombie.network.GameClient;
+import zombie.scripting.ScriptManager;
+import zombie.scripting.objects.VehicleScript;
 import zombie.vehicles.BaseVehicle;
 import zombie.vehicles.VehiclePart;
+import zombie.vehicles.VehiclesDB2;
 
 /**
  * Keys for whoever is working on the mod, there only in a development build: the jar a
@@ -41,6 +53,17 @@ import zombie.vehicles.VehiclePart;
  * shot broke, fills its tank, hot-wires it and sits the player in its first free seat, whatever
  * state it was found in. For looking at vehicles and driving without first finding one that runs.
  * It also puts a digital watch on the left wrist of a player who wears none, for the watch glance.
+ *
+ * Right Ctrl gives the first player the next of KI5's cars, round and round, and Shift with it the
+ * one before, and says on the screen which and where it is in the list. KI5's cars are every
+ * vehicle script with a driver's seat and an engine, so no trailer, loaded from a mod that
+ * requires damnlib, which every one of KI5's does; a vehicle mod that does not require it is left
+ * out. Where the player sits in a vehicle, or one is within the Down arrow's reach, that vehicle
+ * is taken away, with anyone else in it left standing, and the car stands in its place facing its
+ * way, whether it fits there or not; else it stands on clear open ground beside the player,
+ * facing their way. Either way it is mended, filled, hot-wired and the player put in its
+ * driver's seat, as Down arrow does. For looking at how each modded interior is drawn without
+ * spawning them one by one.
  *
  * The apostrophe makes the player invincible, and vulnerable again on the next press.
  *
@@ -256,6 +279,17 @@ public final class DevKeys {
     private static final int TORCH_KEY = 53;
     /** The up arrow. K is the game's own frame rate display. */
     private static final int LOW_HIGH_KEY = 200;
+    /** Right Ctrl. The game binds only Left Ctrl, and holding Right Ctrl leaves nothing changed in it. */
+    private static final int KI5_KEY = 157;
+    private static final String DAMNLIB = "damnlib";
+    /** The KI5 car last given, and none before the first press. */
+    private static int ki5 = -1;
+    /** How many KI5 cars the list held at the last press, so it is told again when that changes. */
+    private static int ki5Count = -1;
+    /** How far from the player the ground a KI5 car placed beside them needs begins, in tiles, at least and at most. */
+    private static final float BESIDE_NEAREST = 1f, BESIDE_FURTHEST = 4f, BESIDE_STEP = 0.5f;
+    /** How finely that ground is tried, and how far past the car it has to be clear, in tiles. */
+    private static final float FOOTPRINT_STEP = 0.5f, FOOTPRINT_MARGIN = 0.3f;
     private static final String TORCH = "Base.HandTorch";
     private static final String RIFLE = "Base.HuntingRifle";
     private static int scope = -1;
@@ -286,7 +320,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is unless Project Viewpoint runs, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is unless Project Viewpoint runs, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right Ctrl gives the next KI5 car and Shift with it the one before, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();
@@ -457,6 +491,9 @@ public final class DevKeys {
                 wearWatch(each);
                 takeNearestVehicle(each);
             }
+        }
+        if (GameKeyboard.isKeyPressed(KI5_KEY) && !players.isEmpty()) {
+            told = giveKi5Car(players.get(0), shiftHeld());
         }
         if (!players.isEmpty()) {
             String scene = DevScenes.poll(players.get(0));
@@ -760,6 +797,37 @@ public final class DevKeys {
         if (player.getVehicle() != null) {
             return;
         }
+        BaseVehicle nearest = nearestVehicle(player);
+        if (nearest == null) {
+            Log.info("no vehicle within " + TAKE_WITHIN + " tiles");
+            return;
+        }
+        readyToDrive(nearest);
+        int seat = 0;
+        while (seat < nearest.getMaxPassengers() && nearest.isSeatOccupied(seat)) {
+            seat++;
+        }
+        if (seat == nearest.getMaxPassengers()) {
+            Log.info("the vehicle at (" + nearest.getX() + ", " + nearest.getY() + ") has no free seat for player " + (player.getPlayerNum() + 1));
+            return;
+        }
+        boolean seated = seat(nearest, seat, player);
+        Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), player " + (player.getPlayerNum() + 1) + " seated " + seated + " in seat " + seat);
+    }
+
+    /** Sits a player in a seat as the game's own getting in ends (ISEnterVehicle.perform): inside, at rest, and its dashboard told. */
+    private static boolean seat(BaseVehicle vehicle, int seat, IsoPlayer player) {
+        if (!vehicle.enter(seat, player)) {
+            return false;
+        }
+        vehicle.setCharacterPosition(player, seat, "inside");
+        vehicle.playPassengerAnim(seat, "idle");
+        LuaEventManager.triggerEvent("OnEnterVehicle", player);
+        return true;
+    }
+
+    /** The vehicle nearest the player within Down arrow's reach, or null. */
+    private static BaseVehicle nearestVehicle(IsoPlayer player) {
         BaseVehicle nearest = null;
         float nearestSquared = TAKE_WITHIN * TAKE_WITHIN;
         for (BaseVehicle vehicle : IsoWorld.instance.currentCell.getVehicles()) {
@@ -769,38 +837,192 @@ public final class DevKeys {
                 nearest = vehicle;
             }
         }
-        if (nearest == null) {
-            Log.info("no vehicle within " + TAKE_WITHIN + " tiles");
-            return;
-        }
-        // Mended whole but for a lamp a shot broke, which stays out until a mechanic puts it back.
+        return nearest;
+    }
+
+    /** Mends a vehicle whole but for a lamp a shot broke, which stays out until a mechanic puts it back, fills its tank and hot-wires it. */
+    private static void readyToDrive(BaseVehicle vehicle) {
         ArrayList<VehiclePart> dark = new ArrayList<>();
         for (String id : ShotLights.VEHICLE_LAMPS) {
-            VehiclePart lamp = nearest.getPartById(id);
+            VehiclePart lamp = vehicle.getPartById(id);
             if (lamp != null && ShotLights.isShotOut(lamp)) {
                 dark.add(lamp);
             }
         }
-        nearest.repair();
+        vehicle.repair();
         for (VehiclePart lamp : dark) {
             lamp.setInventoryItem(null);
-            nearest.transmitPartItem(lamp);
+            vehicle.transmitPartItem(lamp);
         }
-        VehiclePart tank = nearest.getParts().getPartById("GasTank");
+        VehiclePart tank = vehicle.getParts().getPartById("GasTank");
         if (tank != null) {
             tank.setContainerContentAmount(tank.getContainerCapacity());
         }
-        nearest.setHotwired(true);
-        int seat = 0;
-        while (seat < nearest.getMaxPassengers() && nearest.isSeatOccupied(seat)) {
-            seat++;
+        vehicle.setHotwired(true);
+    }
+
+    /**
+     * The next KI5 car, or the one before, in place of the vehicle the player is in or nearest
+     * them, or beside them where there is none, with the player at its wheel. Says what it did,
+     * for the screen.
+     */
+    private static String giveKi5Car(IsoPlayer player, boolean back) {
+        ArrayList<VehicleScript> cars = ki5Cars();
+        if (cars.isEmpty()) {
+            Log.info("Right Ctrl: no KI5 car to give: no loaded mod that requires " + DAMNLIB + " has a vehicle with a driver's seat and an engine");
+            return "No KI5 cars loaded";
         }
-        if (seat == nearest.getMaxPassengers()) {
-            Log.info("the vehicle at (" + nearest.getX() + ", " + nearest.getY() + ") has no free seat for player " + (player.getPlayerNum() + 1));
-            return;
+        int next = back ? Math.floorMod(Math.max(ki5, 0) - 1, cars.size()) : (ki5 + 1) % cars.size();
+        VehicleScript script = cars.get(next);
+        String told = "KI5 car " + (next + 1) + " of " + cars.size() + ": " + nameOf(script) + " (" + script.getFullName() + ")";
+        BaseVehicle car = new BaseVehicle(IsoWorld.instance.currentCell);
+        car.setScriptName(script.getFullName());
+        car.setScript();
+        BaseVehicle was = player.getVehicle() != null ? player.getVehicle() : nearestVehicle(player);
+        IsoGridSquare square;
+        if (was != null) {
+            // Its heading, not how it lies: a car on its roof is put back on its wheels.
+            Vector3f ahead = was.getForwardVector(new Vector3f());
+            car.setX(was.getX());
+            car.setY(was.getY());
+            car.setZ(was.getZ());
+            car.setDir(was.getDir());
+            car.savedRot.setAngleAxis((float) Math.atan2(ahead.x, ahead.z), 0f, 1f, 0f);
+            car.jniTransform.setRotation(car.savedRot);
+            square = was.getSquare();
+            Log.info("Right Ctrl: " + was.getScriptName() + " at (" + was.getX() + ", " + was.getY() + ", " + was.getZ() + ") heading (" + ahead.x + ", " + ahead.z
+                    + ") taken away for " + script.getFullName() + (player.getVehicle() == was ? ", the player in it" : ""));
+            was.permanentlyRemove();
+        } else {
+            // Facing the player's way, turned as the game turns a vehicle it spawns facing one (LuaManager's addVehicleDebug).
+            IsoDirections facing = player.getDir();
+            car.setDir(facing);
+            car.savedRot.setAngleAxis((float) ((facing.toAngle() + Math.PI) % (2 * Math.PI)), 0f, 1f, 0f);
+            car.jniTransform.setRotation(car.savedRot);
+            square = clearSpotBeside(player, car, script);
+            if (square == null) {
+                Log.info("Right Ctrl: no clear open ground beside the player at (" + player.getX() + ", " + player.getY() + ", " + player.getZ() + ") for "
+                        + script.getFullName() + ", extents " + script.getExtents().x + " by " + script.getExtents().z);
+                return "No room beside you for " + nameOf(script);
+            }
         }
-        boolean seated = nearest.enter(seat, player);
-        Log.info("took the vehicle at (" + nearest.getX() + ", " + nearest.getY() + "), player " + (player.getPlayerNum() + 1) + " seated " + seated + " in seat " + seat);
+        car.setSquare(square);
+        square.chunk.vehicles.add(car);
+        car.chunk = square.chunk;
+        car.addToWorld();
+        VehiclesDB2.instance.addVehicle(car);
+        readyToDrive(car);
+        ki5 = next;
+        boolean seated = seat(car, 0, player);
+        Vector3f ahead = car.getForwardVector(new Vector3f());
+        Log.info("Right Ctrl: " + told + " at (" + car.getX() + ", " + car.getY() + ", " + car.getZ() + ") heading (" + ahead.x + ", " + ahead.z + "), player "
+                + (player.getPlayerNum() + 1) + " seated " + seated + " in the driver's seat");
+        return seated ? told : told + ", but the driver's seat did not take the player";
+    }
+
+    /**
+     * Every vehicle script with a driver's seat and an engine loaded from a mod that requires
+     * damnlib, by full name. A script is a mod's where the file the game loaded it from is in
+     * that mod's folder.
+     */
+    private static ArrayList<VehicleScript> ki5Cars() {
+        ArrayList<Path> folders = new ArrayList<>();
+        List<String> mods = ZomboidFileSystem.instance.getModIDs();
+        for (String id : mods) {
+            ChooseGameInfo.Mod mod = ChooseGameInfo.getAvailableModDetails(id);
+            if (mod == null || mod.getRequire() == null) {
+                continue;
+            }
+            for (String required : mod.getRequire()) {
+                if (required.strip().equals(DAMNLIB)) {
+                    folders.add(Path.of(mod.getDir()).toAbsolutePath().normalize());
+                    break;
+                }
+            }
+        }
+        ArrayList<VehicleScript> cars = new ArrayList<>();
+        int all = 0, notDrivable = 0, unnamed = 0;
+        for (VehicleScript script : ScriptManager.instance.getAllVehicleScripts()) {
+            all++;
+            String loaded = ZomboidFileSystem.instance.getAbsolutePath(script.getFileName());
+            if (loaded == null) {
+                unnamed++;
+                continue;
+            }
+            Path file = Path.of(loaded).toAbsolutePath().normalize();
+            if (folders.stream().noneMatch(file::startsWith)) {
+                continue;
+            }
+            if (script.getPassengerCount() == 0 || script.getPartById("Engine") == null) {
+                notDrivable++;
+                continue;
+            }
+            cars.add(script);
+        }
+        cars.sort(Comparator.comparing(VehicleScript::getFullName));
+        if (cars.size() != ki5Count) {
+            ki5Count = cars.size();
+            Log.info("Right Ctrl: " + cars.size() + " KI5 cars from the " + folders.size() + " of " + mods.size() + " loaded mods that require " + DAMNLIB + ", of " + all
+                    + " vehicle scripts; " + notDrivable + " of theirs left out with no driver's seat or no engine, " + unnamed + " scripts with no file the game can name"
+                    + (cars.isEmpty() ? "" : "; the first " + cars.get(0).getFullName() + " from " + ZomboidFileSystem.instance.getAbsolutePath(cars.get(0).getFileName())));
+        }
+        return cars;
+    }
+
+    /** The name the game shows for a vehicle of this script, or its full name where no translation names it. */
+    private static String nameOf(VehicleScript script) {
+        String model = script.getCarModelName() != null ? script.getCarModelName() : script.getName();
+        String name = Translator.getTextOrNull("IGUI_VehicleName" + model);
+        return name != null ? name : script.getFullName();
+    }
+
+    /**
+     * The square under a car placed beside the player, on their right and then their left,
+     * nearest first, then ahead and behind, where the ground round it as far as its farthest
+     * corner reaches, whichever way it is turned, is clear open ground on the player's level and
+     * the game would stand a vehicle there; null where it is nowhere. The car is left at the
+     * place found.
+     */
+    private static IsoGridSquare clearSpotBeside(IsoPlayer player, BaseVehicle car, VehicleScript script) {
+        float aheadX = player.getForwardDirection().x, aheadY = player.getForwardDirection().y;
+        float length = (float) Math.hypot(aheadX, aheadY);
+        aheadX /= length;
+        aheadY /= length;
+        float reach = (float) (Math.hypot(script.getExtents().x / 2f, script.getExtents().z / 2f)
+                + Math.hypot(script.getExtentsOffset().x, script.getExtentsOffset().y)) + FOOTPRINT_MARGIN;
+        int level = (int) Math.floor(player.getZ());
+        float[][] ways = {{-aheadY, aheadX}, {aheadY, -aheadX}, {aheadX, aheadY}, {-aheadX, -aheadY}};
+        for (float[] way : ways) {
+            for (float gap = BESIDE_NEAREST; gap <= BESIDE_FURTHEST; gap += BESIDE_STEP) {
+                float x = player.getX() + way[0] * (reach + gap), y = player.getY() + way[1] * (reach + gap);
+                if (!clearGround(x, y, reach, level)) {
+                    continue;
+                }
+                car.setX(x);
+                car.setY(y);
+                car.setZ(level);
+                if (IsoChunk.doSpawnedVehiclesInInvalidPosition(car)) {
+                    return IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(x), (int) Math.floor(y), level);
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Whether every square within reach of (x, y) is out of doors, with nothing solid, no tree and no one on it. */
+    private static boolean clearGround(float x, float y, float reach, int level) {
+        for (float dx = -reach; dx <= reach + 1e-3f; dx += FOOTPRINT_STEP) {
+            for (float dy = -reach; dy <= reach + 1e-3f; dy += FOOTPRINT_STEP) {
+                if (dx * dx + dy * dy > reach * reach) {
+                    continue;
+                }
+                IsoGridSquare square = IsoWorld.instance.currentCell.getGridSquare((int) Math.floor(x + dx), (int) Math.floor(y + dy), level);
+                if (square == null || !square.isOutside() || square.isSolid() || square.isSolidTrans() || square.HasTree() || !square.isFree(true)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** Whether either Shift is held. */
