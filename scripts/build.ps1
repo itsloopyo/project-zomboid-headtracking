@@ -88,10 +88,11 @@ Invoke-Javac test-classes ($javac + @('-cp', 'build/classes', '-d', 'build/test-
 
 Copy-Item -Recurse -Force src/main/resources/* build/classes/
 Copy-Item -Recurse -Force src/main/resources/* build/dev-classes/
-# Each batch of props is a pair of files in src/main/resources/models that tools/models/props/<batch>.py makes. The mod
-# learns which batches there are from this list beside its classes, written here so that no batch edits a list shared
-# with the others. A file named is read the same way whatever class loader loaded the mod; a listing of a jar is not.
-$propBatches = @(Get-ChildItem -File src/main/resources/models -Filter 'props-*.txt' | Sort-Object Name | ForEach-Object { $_.BaseName.Substring('props-'.Length) })
+# Each batch of props is a pair of files in src/main/resources/props, the props' own art jar, that
+# tools/models/props/<batch>.py makes. The mod learns which batches there are from this list beside its classes, written
+# here so that no batch edits a list shared with the others. A file named is read the same way whatever class loader
+# loaded the mod; a listing of a jar is not.
+$propBatches = @(Get-ChildItem -File src/main/resources/props -Filter '*.txt' | Sort-Object Name | ForEach-Object BaseName)
 foreach ($classes in @('build/classes', 'build/dev-classes')) {
     [IO.File]::WriteAllLines((Join-Path (Resolve-Path $classes) 'com/cameraunlock/zomboid/props-batches.txt'), [string[]]$propBatches)
 }

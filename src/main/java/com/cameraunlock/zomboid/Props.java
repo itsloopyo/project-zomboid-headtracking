@@ -14,15 +14,16 @@ import zombie.core.textures.Texture;
 import zombie.iso.IsoObject;
 import zombie.iso.sprite.IsoSprite;
 import zombie.iso.sprite.IsoSpriteInstance;
+import zombie.iso.sprite.IsoSpriteManager;
 
 /**
  * What the game lays over a piece of furniture the mod models, made: the overlays TileOverlays sets out at random over a
  * piece and ContainerOverlays paints over a container, each a picture the game draws over the piece's sprite, stood on
  * the model as props of the mod's own.
  *
- * The props come in batches, one to a family of pieces, each a pair of files in the jar's models folder that
- * tools/models/props/BATCH.py makes: props-BATCH.bin.gz holds its models, which Models reads with the furniture's, and
- * props-BATCH.txt says what each overlay makes of each piece it lies on, one line a thing, tab separated:
+ * The props come in batches, one to a family of pieces, each a pair of files in the props folder of their own art jar
+ * that tools/models/props/BATCH.py makes: BATCH.bin.gz holds its models, which Models reads with the furniture's, and
+ * BATCH.txt says what each overlay makes of each piece it lies on, one line a thing, tab separated:
  *
  *   swap       OVERLAY  HOST  MODEL  X Y Z   the piece is drawn as MODEL in place of HOST, a cupboard with its door left off
  *   prop       OVERLAY  HOST  MODEL  X Y Z  DYE   MODEL stands on the piece
@@ -30,7 +31,8 @@ import zombie.iso.sprite.IsoSpriteInstance;
  *              a stain, a scratch or a scuff stands at each of ACROSS by ALONG points spread over the parallelogram O,
  *              O + U, O + V, where the overlay paints that point, coloured as the overlay paints it there
  *
- * HOST is the name of the piece's model; a prop stands only on that one. Every place is in the host model's metres, from
+ * HOST is the name of the model the piece is drawn as, a lit drum's burn_barrel and not its barrel; a prop stands only
+ * on that one. Every place is in the host model's metres, from
  * the middle of its footprint on its floor with its back to +Y, as tools/models/furniture.py builds it, so a prop stands
  * wherever and however the piece is turned, scaled with it, and from the host's own geometry where the game gives the
  * piece no surface height. A prop's model, and a model swapped in, was made where it stands in that space, and (X, Y, Z)
@@ -39,14 +41,15 @@ import zombie.iso.sprite.IsoSpriteInstance;
  * A mark stands with the middle of its footprint at its point, its surfaces in DYED coloured from the overlay there.
  *
  * Where a piece's overlay has a batch here the props stand in place of the overlay's picture (FurnishingBuilder.standsOver),
- * and where it has none the picture still stands. All of it is the Own furniture switch's: with it off no piece is
- * modelled, and the game draws its own sprites and overlays.
+ * and where it has none the picture still stands. A piece on more than one square has the overlays of each of its
+ * squares, and stands the props of each from the square that stands its model. A stocked fitting and a display case
+ * have goods of their own (ShopFittings, DisplayCases), and no batch dresses them. All of it is the Own furniture
+ * switch's, and then Own.props': with furniture off no piece is modelled and the game draws its own sprites and
+ * overlays, and with props off the game's pictures stand over the models as cards.
  */
 final class Props {
     private Props() {}
 
-    /** The list of batches the build writes beside this class: see scripts/build.ps1. */
-    private static final String BATCHES = "props-batches.txt";
     static final String HOST_DYE = "host", PLAIN_DYE = "plain", OVER_DYE = "over:";
 
     /** A prop on a piece: its model, where it stands, how it is coloured, as the batch's file says it. */
@@ -66,38 +69,7 @@ final class Props {
     /** A batch's file as read: its lines by overlay, then by host. */
     record Batch(String name, Map<String, Map<String, Dressing>> dressings) {}
 
-    private static volatile List<String> batchNames;
     private static volatile Map<String, Map<String, Dressing>> made;
-
-    /** The names of the batches of props the jar holds, in order. */
-    static List<String> batches() {
-        List<String> names = batchNames;
-        if (names == null) {
-            List<String> read = new ArrayList<>();
-            try (InputStream in = Props.class.getResourceAsStream(BATCHES)) {
-                if (in == null) {
-                    throw new IllegalStateException("the jar has no " + BATCHES + " beside " + Props.class.getName() + ": the build writes it");
-                }
-                for (String line : new String(in.readAllBytes(), StandardCharsets.US_ASCII).split("\\R")) {
-                    if (!line.isBlank()) {
-                        read.add(line.trim());
-                    }
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(BATCHES + " could not be read", e);
-            }
-            batchNames = names = List.copyOf(read);
-        }
-        return names;
-    }
-
-    static String modelsOf(String batch) {
-        return "/models/props-" + batch + ".bin.gz";
-    }
-
-    static String placesOf(String batch) {
-        return "/models/props-" + batch + ".txt";
-    }
 
     /** Every batch's lines, by overlay and host, read once whichever threads ask. */
     private static Map<String, Map<String, Dressing>> made() {
@@ -107,8 +79,10 @@ final class Props {
                 all = made;
                 if (all == null) {
                     all = new HashMap<>();
-                    for (String batch : batches()) {
-                        for (Map.Entry<String, Map<String, Dressing>> overlay : read(batch).dressings().entrySet()) {
+                    for (String batch : Models.propBatches()) {
+                        Batch read = read(batch);
+                        standsOnlyModelsTheJarHas(read);
+                        for (Map.Entry<String, Map<String, Dressing>> overlay : read.dressings().entrySet()) {
                             Map<String, Dressing> hosts = all.computeIfAbsent(overlay.getKey(), key -> new HashMap<>());
                             for (Map.Entry<String, Dressing> host : overlay.getValue().entrySet()) {
                                 if (hosts.put(host.getKey(), host.getValue()) != null) {
@@ -124,9 +98,40 @@ final class Props {
         return all;
     }
 
+    /** Refuses a batch whose file names a model, or a host, the jar's models have none of. */
+    static void standsOnlyModelsTheJarHas(Batch batch) {
+        for (Map.Entry<String, Map<String, Dressing>> overlay : batch.dressings().entrySet()) {
+            for (Map.Entry<String, Dressing> host : overlay.getValue().entrySet()) {
+                List<String> models = named(host.getValue());
+                models.add(host.getKey());
+                for (String model : models) {
+                    if (!Models.has(model)) {
+                        throw new IllegalStateException(Models.propPlacesOf(batch.name()) + " names " + model + " for " + overlay.getKey() + " on " + host.getKey()
+                                + ", and the jar's models, " + Models.propModelsOf(batch.name()) + " among them, have none of that name");
+                    }
+                }
+            }
+        }
+    }
+
+    /** Every model a dressing names: what it swaps its host for, its props and its marks. */
+    static List<String> named(Dressing dressing) {
+        List<String> out = new ArrayList<>();
+        if (dressing.swap != null) {
+            out.add(dressing.swap);
+        }
+        for (Prop prop : dressing.props) {
+            out.add(prop.model);
+        }
+        for (Marks marks : dressing.marks) {
+            out.addAll(List.of(marks.models));
+        }
+        return out;
+    }
+
     /** One batch's file, read from the jar. */
     static Batch read(String batch) {
-        String resource = placesOf(batch);
+        String resource = Models.propPlacesOf(batch);
         try (InputStream in = Props.class.getResourceAsStream(resource)) {
             if (in == null) {
                 throw new IllegalStateException("the jar has no " + resource);
@@ -147,7 +152,7 @@ final class Props {
                 continue;
             }
             String[] cells = line.split("\t", -1);
-            String where = "props-" + batch + ".txt line " + number;
+            String where = batch + ".txt line " + number;
             switch (cells[0]) {
                 case "swap" -> {
                     need(cells, 5, where);
@@ -179,9 +184,12 @@ final class Props {
                 }
                 case "marks" -> {
                     need(cells, 9, where);
-                    float[] counts = floats(cells[7], 2, where);
+                    String[] counts = cells[7].trim().split(" +");
+                    if (counts.length != 2 || !counts[0].matches("[1-9][0-9]*") || !counts[1].matches("[1-9][0-9]*")) {
+                        throw new IllegalStateException(where + ": marks are spread ACROSS by ALONG, two whole numbers over 0, not " + cells[7]);
+                    }
                     dressing(dressings, cells).marks.add(new Marks(cells[3].split(","), floats(cells[4], 3, where), floats(cells[5], 3, where),
-                            floats(cells[6], 3, where), (int) counts[0], (int) counts[1], Integer.parseInt(cells[8])));
+                            floats(cells[6], 3, where), Integer.parseInt(counts[0]), Integer.parseInt(counts[1]), Integer.parseInt(cells[8])));
                 }
                 default -> throw new IllegalStateException(where + " is a " + cells[0] + ", and a line is swap, prop or marks");
             }
@@ -217,40 +225,61 @@ final class Props {
         return hosts == null ? null : hosts.get(host);
     }
 
-    /** Whether some batch makes the overlay on the piece, as the piece's own model or with its basin. */
+    /**
+     * Whether some batch makes the overlay on the piece, as the model the piece is drawn as or with its basin. A square
+     * of a piece that stands nothing of its own is the piece the square that stands it is, and a stocked fitting and a
+     * case are dressed by goods of their own.
+     */
     static boolean makes(String overlay, Furniture piece) {
         Map<String, Dressing> hosts = made().get(overlay);
-        return hosts != null && (hosts.containsKey(piece.model.name) || piece.withBasin != null && hosts.containsKey(piece.withBasin.name));
+        Furniture stands = piece.model == null && piece.partner != null ? Furniture.known(IsoSpriteManager.instance.namedMap.get(piece.partner)) : piece;
+        if (hosts == null || stands == null || stands.model == null || stands.stocked || stands.displayCase) {
+            return false;
+        }
+        return hosts.containsKey(stands.model.name) || stands.withBasin != null && hosts.containsKey(stands.withBasin.name);
     }
 
-    /** The names of what the game lays over an object: TileOverlays' into its attached sprites, ContainerOverlays' as its overlay. */
-    static List<String> overlaysOn(IsoObject object, List<String> out) {
+    /** A square of a piece the props of whose overlays stand: its object, the square, and what the game lays over it. */
+    static final class Square {
+        IsoObject object;
+        int x, y;
+        final List<IsoSprite> overlays = new ArrayList<>();
+    }
+
+    /** What the game lays over an object: TileOverlays' into its attached sprites, ContainerOverlays' as its overlay. */
+    static List<IsoSprite> overlaysOn(IsoObject object, List<IsoSprite> out) {
         out.clear();
         List<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
         if (attached != null) {
             for (IsoSpriteInstance instance : attached) {
                 if (instance != null && instance.parentSprite != null && instance.parentSprite.getName() != null) {
-                    out.add(instance.parentSprite.getName());
+                    out.add(instance.parentSprite);
                 }
             }
         }
         IsoSprite overlay = object.getOverlaySprite();
         if (overlay != null && overlay.getName() != null) {
-            out.add(overlay.getName());
+            out.add(overlay);
         }
         return out;
     }
 
-    /** What of the overlays named has a piece of host model drawn as another model, or null where none does. */
-    static Dressing swapOf(List<String> overlays, Models.Model host) {
+    /**
+     * What of the overlays over the first count squares has a piece of host model drawn as another model, or null where
+     * none does. Two that would draw it as different models are refused: PropsTests holds every batch to one.
+     */
+    static Dressing swapOf(List<Square> squares, int count, Models.Model host) {
         Dressing swap = null;
-        for (String overlay : overlays) {
-            Dressing dressing = of(overlay, host.name);
-            if (dressing != null && dressing.swap != null) {
-                if (swap != null && !swap.swap.equals(dressing.swap)) {
-                    throw new IllegalStateException(host.name + " is to be drawn as both " + swap.swap + " and " + dressing.swap + " under " + overlays);
+        for (int i = 0; i < count; i++) {
+            for (IsoSprite overlay : squares.get(i).overlays) {
+                Dressing dressing = of(overlay.getName(), host.name);
+                if (dressing != null && dressing.swap != null) {
+                    if (swap != null && !swap.swap.equals(dressing.swap)) {
+                        throw new IllegalStateException(host.name + " is to be drawn as both " + swap.swap + " and " + dressing.swap + ", the second under "
+                                + overlay.getName());
+                    }
+                    swap = dressing;
                 }
-                swap = dressing;
             }
         }
         return swap;
@@ -269,9 +298,10 @@ final class Props {
     static final class Stand {
         SpriteGeometry.Frame light;
         int litX, litY, across, down;
-        /** The square the object is on, which its overlay is drawn over, and where on the map the model's origin stands. */
-        int objectX, objectY, objectZ;
+        /** Where on the map the host model's origin stands. */
         float centreX, centreY, foot;
+        /** How far the piece's model is raised off its square, as foot is measured: Furniture.raised. */
+        float raised;
         int turns;
         float scale, scaleUp;
         int dyeTexture, dyed, alsoDyed;
@@ -282,24 +312,22 @@ final class Props {
     private static final ThreadLocal<SpriteGeometry.Frame> OVER_FRAME = ThreadLocal.withInitial(SpriteGeometry.Frame::new);
 
     /**
-     * Stands the props every overlay named makes of a piece whose model, before any swap, is host, where the piece
-     * stands. object is the piece's, whose overlays' pictures give the props' colours; scale is the frame's sprite scale.
+     * Stands the props every overlay over a square of a piece makes of the piece, whose model before any swap is host,
+     * where the piece stands. The overlays' pictures over the square give the props' colours; spriteScale is the frame's
+     * sprite scale. Where the game has no picture of an overlay to draw yet, what takes its colours from the picture
+     * waits for the square to be built again, and the rest stands.
      */
-    static void add(WorldScene.Frame build, IsoObject object, List<String> overlays, String host, Stand at, float spriteScale) {
-        for (String overlay : overlays) {
-            Dressing dressing = of(overlay, host);
+    static void add(WorldScene.Frame build, Square square, String host, Stand at, float spriteScale) {
+        for (IsoSprite overlay : square.overlays) {
+            Dressing dressing = of(overlay.getName(), host);
             if (dressing == null) {
                 continue;
             }
-            Texture painted = null;
+            Texture painted = needsPicture(dressing) ? pictureOf(square.object, overlay) : null;
             SpriteGeometry.Frame frame = OVER_FRAME.get();
-            if (needsPicture(dressing)) {
-                painted = pictureOf(object, overlay);
-                if (painted == null) {
-                    continue;
-                }
+            if (painted != null) {
                 frame.scale = spriteScale;
-                WorldScene.frameOf(frame, object, painted);
+                WorldScene.frameOf(frame, square.object, painted);
             }
             for (Prop prop : dressing.props) {
                 float[] map = place(at, prop.x, prop.y);
@@ -315,8 +343,11 @@ final class Props {
                     alsoU = at.alsoU;
                     alsoV = at.alsoV;
                 } else if (prop.dye.equals(OVER_DYE)) {
+                    if (painted == null) {
+                        continue;
+                    }
                     float[] dyeAt = place(at, prop.dyeX, prop.dyeY);
-                    float a = dyeAt[0] - at.objectX, b = dyeAt[1] - at.objectY, high = heightOnPicture(at, prop.dyeZ);
+                    float a = dyeAt[0] - square.x, b = dyeAt[1] - square.y, high = heightOnPicture(at, prop.dyeZ);
                     texture = painted.getID();
                     dyed = prop.dyed;
                     u = SpriteGeometry.textureU(frame, a, b);
@@ -328,7 +359,7 @@ final class Props {
                     build.placed.span(at.across, at.down);
                 }
             }
-            for (Marks marks : dressing.marks) {
+            for (Marks marks : painted == null ? List.<Marks>of() : dressing.marks) {
                 for (int i = 0; i < marks.acrossCount; i++) {
                     for (int j = 0; j < marks.alongCount; j++) {
                         float s = (i + 0.5f) / marks.acrossCount, t = (j + 0.5f) / marks.alongCount;
@@ -337,7 +368,7 @@ final class Props {
                         float z = marks.origin[2] + s * marks.across[2] + t * marks.along[2];
                         float[] map = place(at, x, y);
                         float mapX = map[0], mapY = map[1];
-                        float a = mapX - at.objectX, b = mapY - at.objectY, high = heightOnPicture(at, z);
+                        float a = mapX - square.x, b = mapY - square.y, high = heightOnPicture(at, z);
                         if (!painted.isMaskSet(Math.round(SpriteGeometry.frameU(frame, a, b)), Math.round(SpriteGeometry.frameV(frame, a, b, high)))) {
                             continue;
                         }
@@ -362,24 +393,13 @@ final class Props {
         return false;
     }
 
-    /** The picture of the overlay of that name over the object, as the game draws it, or null where it has none to draw. */
-    private static Texture pictureOf(IsoObject object, String overlay) {
-        IsoSprite sprite = null;
-        List<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
-        if (attached != null) {
-            for (IsoSpriteInstance instance : attached) {
-                if (instance != null && instance.parentSprite != null && overlay.equals(instance.parentSprite.getName())) {
-                    sprite = instance.parentSprite;
-                }
-            }
-        }
-        if (sprite == null && object.getOverlaySprite() != null && overlay.equals(object.getOverlaySprite().getName())) {
-            sprite = object.getOverlaySprite();
-        }
-        if (sprite == null) {
-            throw new IllegalStateException(overlay + " was named as over the object and is not");
-        }
-        Texture texture = sprite.getTextureForCurrentFrame(object.getDir());
+    /**
+     * The picture of an overlay over the object, as the game draws it, or null where it has none to draw. The sprite is
+     * the one overlaysOn found, not looked up again: the game may take an overlay off while the build runs, a container
+     * emptied as it is looted.
+     */
+    private static Texture pictureOf(IsoObject object, IsoSprite overlay) {
+        Texture texture = overlay.getTextureForCurrentFrame(object.getDir());
         return WorldScene.usable(texture) ? texture : null;
     }
 
@@ -392,8 +412,11 @@ final class Props {
         return turned;
     }
 
-    /** How high, in levels over the floor of the object's square, the overlay's picture paints a point z metres up the host model. */
-    private static float heightOnPicture(Stand at, float z) {
-        return (at.foot + z * at.scaleUp - at.objectZ * ViewCamera.LEVEL_HEIGHT) / ViewCamera.LEVEL_HEIGHT;
+    /**
+     * How high, in levels over the floor of the object's square, the overlay's picture paints a point z metres up the host
+     * model: as the piece's own sprite is painted, from the square's floor, whatever the ground under it is lifted by.
+     */
+    static float heightOnPicture(Stand at, float z) {
+        return (z * at.scaleUp + at.raised) / ViewCamera.LEVEL_HEIGHT;
     }
 }

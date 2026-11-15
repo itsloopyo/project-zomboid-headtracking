@@ -123,8 +123,10 @@ final class FurnishingBuilder {
     /** The light of the squares a piece over more than one stands on, at the block's outer corners: see Models.Instances.span. */
     private final SpriteGeometry.Frame blockFrame = new SpriteGeometry.Frame();
     private final float[] footCorner = new float[2];
-    /** The overlays over the piece being stood, and where it stands for its props: see Props. */
-    private final List<String> overlayNames = new ArrayList<>();
+    /** The squares of the piece being stood that have something laid over them, the first propCount of them, and where it stands for its props: see Props. */
+    private final List<Props.Square> propSquares = new ArrayList<>();
+    private int propCount;
+    private final int[] partsOrigin = new int[2];
     private final Props.Stand propStand = new Props.Stand();
     private final float[] swapAt = new float[3];
     /** How far, in tiles, a model may reach over the next square and still be lit as one standing on its own: a hair over its edge is not standing there. */
@@ -658,6 +660,63 @@ final class FurnishingBuilder {
         T holding(int dx, int dy, IsoSprite sprite);
     }
 
+    /** The same by the sprite's name: the object of a sprite so called on the square dx, dy from it, or null. */
+    interface Named<T> {
+        T named(int dx, int dy, String sprite);
+    }
+
+    /** Each square of a piece found, dx, dy from the one asked about, and what it holds of the piece. */
+    interface Parts<T> {
+        void part(int dx, int dy, T part);
+    }
+
+    /**
+     * Every square of a piece that stands from the square asked about, which holds self, and what each holds of it, to
+     * parts: each square of its grid, as whole finds them, or self's alone, then its partner's, which stands nothing of its
+     * own. A square of a row stands its own share of the piece, and is its own. Asked of the square that stands the
+     * piece, once ready has found the piece whole there.
+     */
+    static <T> void partsOf(Furniture piece, T self, Around<T> around, Named<T> named, int[] origin, Parts<T> parts) {
+        if (piece.grid == null) {
+            parts.part(0, 0, self);
+        } else {
+            whole(piece, self, around, origin, parts);
+        }
+        if (piece.partner != null && !piece.follows) {
+            T other = named.named(piece.partnerX, piece.partnerY, piece.partner);
+            if (other != null) {
+                parts.part(piece.partnerX, piece.partnerY, other);
+            }
+        }
+    }
+
+    /**
+     * The squares of the piece that stands from object, on (x, y), that the game lays something over, into out, each with
+     * its object, its square and what lies over it: how many there are.
+     */
+    static int overlaidSquares(Furniture piece, IsoObject object, int x, int y, Around<IsoObject> around, Named<IsoObject> named, int[] origin,
+            List<Props.Square> out) {
+        int[] count = {0};
+        partsOf(piece, object, around, named, origin, (dx, dy, part) -> {
+            for (int i = 0; i < count[0]; i++) {
+                if (out.get(i).object == part) {
+                    return;
+                }
+            }
+            if (count[0] == out.size()) {
+                out.add(new Props.Square());
+            }
+            Props.Square square = out.get(count[0]);
+            if (!Props.overlaysOn(part, square.overlays).isEmpty()) {
+                square.object = part;
+                square.x = x + dx;
+                square.y = y + dy;
+                count[0]++;
+            }
+        });
+        return count[0];
+    }
+
     /**
      * Whether every square of the piece holds its part, found from what the squares round the one asked about hold:
      * the part that gives the piece its colour (self for a piece on one square), or null. Leaves in origin how far from
@@ -669,6 +728,11 @@ final class FurnishingBuilder {
      * middle squares only, and holds its part if it holds any middle sprite; an end is where its sprite says.
      */
     static <T> T whole(Furniture piece, T self, Around<T> around, int[] origin) {
+        return whole(piece, self, around, origin, null);
+    }
+
+    /** As whole, and each part found told to parts where it is not null. */
+    static <T> T whole(Furniture piece, T self, Around<T> around, int[] origin, Parts<T> parts) {
         origin[0] = -piece.gridX;
         origin[1] = -piece.gridY;
         if (piece.grid == null) {
@@ -697,6 +761,9 @@ final class FurnishingBuilder {
                 T part = run && middle(piece, alongX ? i : j) ? holdingMiddle(around, dx, dy, piece) : around.holding(dx, dy, piece.grid.getSprite(i, j));
                 if (part == null) {
                     return null;
+                }
+                if (parts != null) {
+                    parts.part(dx, dy, part);
                 }
                 if (i == piece.dyeX && j == piece.dyeY) {
                     dyer = part;
@@ -1034,11 +1101,16 @@ final class FurnishingBuilder {
             // A drum lit as a burn barrel has had its top cut out: the fire is drawn burning in it.
             model = Models.get("burn_barrel");
         }
-        // What the game lays over the piece that a batch of props makes: a cupboard whose door the game paints ajar is
-        // drawn with that door off, its open door a prop.
+        // What the game lays over the piece, over any of its squares, that a batch of props makes: a cupboard whose door
+        // the game paints ajar is drawn with that door off, its open door a prop. A stocked fitting's goods and a case's
+        // cakes are the game's painting made already.
         Models.Model host = model;
-        List<String> overlays = Props.overlaysOn(object, overlayNames);
-        Props.Dressing swap = overlays.isEmpty() ? null : Props.swapOf(overlays, host);
+        propCount = 0;
+        if (Own.props() && !piece.stocked && !piece.displayCase) {
+            propCount = overlaidSquares(piece, object, objectX, objectY, (dx, dy, part) -> holdingOrGhost(objectX + dx, objectY + dy, objectZ, part),
+                    (dx, dy, name) -> namedOrGhost(objectX + dx, objectY + dy, objectZ, name), partsOrigin, propSquares);
+        }
+        Props.Dressing swap = propCount == 0 ? null : Props.swapOf(propSquares, propCount, host);
         if (swap != null) {
             model = Models.get(swap.swap);
         }
@@ -1181,19 +1253,17 @@ final class FurnishingBuilder {
             }
         }
         // Last, as what is added before them asks after the piece last added.
-        if (!overlays.isEmpty()) {
+        if (propCount > 0) {
             Props.Stand stand = propStand;
             stand.light = light;
             stand.litX = litX;
             stand.litY = litY;
             stand.across = across;
             stand.down = down;
-            stand.objectX = objectX;
-            stand.objectY = objectY;
-            stand.objectZ = objectZ;
             stand.centreX = x + hostX;
             stand.centreY = y + hostY;
             stand.foot = hostFoot;
+            stand.raised = piece.raised;
             stand.turns = piece.turns;
             stand.scale = piece.scale;
             stand.scaleUp = piece.scaleUp;
@@ -1204,7 +1274,9 @@ final class FurnishingBuilder {
             stand.dyeV = dyeV;
             stand.alsoU = alsoU;
             stand.alsoV = alsoV;
-            Props.add(build, object, overlays, host.name, stand, build.frame.scale);
+            for (int i = 0; i < propCount; i++) {
+                Props.add(build, propSquares.get(i), host.name, stand, build.frame.scale);
+            }
         }
         return true;
     }
@@ -1317,7 +1389,7 @@ final class FurnishingBuilder {
             return null;
         }
         // Made by a batch of props, which addFurniture stood with the piece.
-        if (Props.makes(over.getName(), piece)) {
+        if (Own.props() && Props.makes(over.getName(), piece)) {
             return null;
         }
         // Both are read only: each map is filled as the game loads its Lua, before any world is built.

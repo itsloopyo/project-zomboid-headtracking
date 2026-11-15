@@ -6,16 +6,18 @@ from the repository root:
 
     blender --background --factory-startup --python tools/models/props/BATCH.py
 
-It writes two files into src/main/resources/models:
+It writes two files into src/main/resources/props, the folder of the props' own art jar:
 
-    props-BATCH.bin.gz   its models, in furniture.bin.gz's format (see furniture.py), each named BATCH_something
-    props-BATCH.txt      what each overlay makes of each piece, which Props.java reads and documents line by line
+    BATCH.bin.gz   its models, in furniture.bin.gz's format (see furniture.py), each named BATCH_something
+    BATCH.txt      what each overlay makes of each piece, which Props.java reads and documents line by line
 
-and beside the script BATCH.built, the SHA-256 of the batch's script, of this one, of furniture.py, which builds the
-pieces and the parts, and of the two files it wrote. PropsTests reads it to say the committed files are the scripts'.
+and beside the script BATCH.built: the SHA-256 of the batch's script, of this one and of the two files it wrote, and
+each host as the batch built it, by the bounds of its model. PropsTests reads it to say the committed files are the
+scripts', and that each host is as big as the jar's model of it, the model the props stand on. The batch refuses to
+write where a host it builds is not the size furniture.bin.gz has it.
 
 The build finds every batch by its pair of files, so a batch adds its own script and its own two files and edits
-nothing shared. A batch builds its props in the space of the model of the piece they stand on (its host), as
+nothing shared: not furniture.py, not this file. A batch builds its props in the space of the model of the piece they stand on (its host), as
 furniture.py builds that model: metres, Z up, the back to +Y. Where a prop stands is then the host's own geometry,
 and the mod stands it however the piece is turned and scaled.
 """
@@ -32,7 +34,11 @@ sys.path.insert(0, os.path.dirname(HERE))
 import furniture  # noqa: E402  (furniture.py builds nothing when imported)
 from mathutils import Vector  # noqa: E402
 
-MODELS = os.path.normpath(os.path.join(HERE, "..", "..", "..", "src", "main", "resources", "models"))
+RESOURCES = os.path.normpath(os.path.join(HERE, "..", "..", "..", "src", "main", "resources"))
+PROPS = os.path.join(RESOURCES, "props")
+FURNITURE = os.path.join(RESOURCES, "models", "furniture.bin.gz")
+# How far a host's bounds as a batch builds it may be from furniture.bin.gz's: what a float holds of a few metres.
+SAME_SIZE = 1e-4
 SURFACE_BITS = {name: 1 << i for i, name in enumerate(furniture.SURFACES)}
 
 
@@ -44,6 +50,33 @@ def origin(model):
     if model.centred:
         return Vector(((low.x + high.x) / 2, (low.y + high.y) / 2, low.z))
     return Vector((0.0, 0.0, low.z))
+
+
+def bounds(model):
+    """A built model's bounds as finish will leave them, from its origin: low x, y, z and high x, y, z."""
+    at = origin(model)
+    return ([min(v[0][axis] for v in model.vertices) - at[axis] for axis in range(3)]
+            + [max(v[0][axis] for v in model.vertices) - at[axis] for axis in range(3)])
+
+
+def furniture_bounds():
+    """Each model's bounds as furniture.bin.gz has them, by name."""
+    data = gzip.open(FURNITURE).read()
+    if data[:4] != b"CUFM":
+        raise SystemExit("%s is not a file of models" % FURNITURE)
+    _, count = struct.unpack_from("<II", data, 4)
+    at = 12
+    out = {}
+    for _ in range(count):
+        size = data[at]
+        name = data[at + 1:at + 1 + size].decode("ascii")
+        at += 1 + size
+        out[name] = list(struct.unpack_from("<6f", data, at))
+        at += 28
+        for _ in range(2):
+            vertices, triangles = struct.unpack_from("<II", data, at)
+            at += 8 + vertices * 26 + triangles * 6
+    return out
 
 
 def stands_on(prop, host):
@@ -100,7 +133,16 @@ def write(batch, script, build, hosts):
     furniture.soft_whole = True
     firmer, _ = build()
     furniture.plain = furniture.soft_whole = False
-    origins = {name: origin(make()) for name, make in hosts.items()}
+    built_hosts = {name: make() for name, make in hosts.items()}
+    origins = {name: origin(model) for name, model in built_hosts.items()}
+    sizes = {name: bounds(model) for name, model in built_hosts.items()}
+    shipped = furniture_bounds()
+    for name, size in sorted(sizes.items()):
+        if name not in shipped:
+            raise SystemExit("the host %s is not in furniture.bin.gz" % name)
+        if max(abs(a - b) for a, b in zip(size, shipped[name])) > SAME_SIZE:
+            raise SystemExit("the host %s as %s builds it is %s, and furniture.bin.gz has it %s: the batch is to build it as every() does"
+                             % (name, batch, _numbers(size), _numbers(shipped[name])))
 
     data = [b"CUFM", struct.pack("<II", 3, len(models))]
     by_name = {}
@@ -124,6 +166,11 @@ def write(batch, script, build, hosts):
 
     lines = []
     for entry in entries:
+        if entry.host not in origins:
+            raise SystemExit("%s is made on %s, which is not among the batch's hosts" % (entry.overlay, entry.host))
+        for name in [entry.model] if isinstance(entry, Prop) else entry.models if isinstance(entry, Marks) else []:
+            if name in by_name and (not by_name[name].around or by_name[name].floor != 0.0):
+                raise SystemExit("%s stands on %s and was built without props.stands_on, which shades it by its host" % (name, entry.host))
         at = origins[entry.host]
         head = "%s\t%s" % (entry.overlay, entry.host)
         if isinstance(entry, Swap):
@@ -145,13 +192,13 @@ def write(batch, script, build, hosts):
             lines.append("marks\t%s\t%s\t%s\t%s\t%s\t%d %d\t%d" % (head, ",".join(entry.models), _numbers(entry.corner - at), _numbers(entry.across),
                                                                 _numbers(entry.along), entry.counts[0], entry.counts[1], _mask(entry.dyed)))
 
-    packed = os.path.join(MODELS, "props-%s.bin.gz" % batch)
-    os.makedirs(MODELS, exist_ok=True)
+    packed = os.path.join(PROPS, "%s.bin.gz" % batch)
+    os.makedirs(PROPS, exist_ok=True)
     with open(packed, "wb") as raw:
         # No name and no time in the gzip header, so the same models pack to the same bytes.
         with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as out:
             out.write(b"".join(data))
-    places = os.path.join(MODELS, "props-%s.txt" % batch)
+    places = os.path.join(PROPS, "%s.txt" % batch)
     with open(places, "w", encoding="ascii", newline="\n") as out:
         out.write("# Made by tools/models/props/%s.py: see Props.java for what each line says.\n" % batch)
         for line in lines:
@@ -159,7 +206,9 @@ def write(batch, script, build, hosts):
     print("wrote %s, %d bytes, and %s, %d lines" % (packed, os.path.getsize(packed), places, len(lines)))
     built = os.path.join(HERE, "%s.built" % batch)
     with open(built, "w", newline="\n") as out:
-        for named in (script, os.path.abspath(__file__), os.path.abspath(furniture.__file__), packed, places):
+        for named in (script, os.path.abspath(__file__), packed, places):
             with open(named, "rb") as read:
                 out.write("%s %s\n" % (os.path.basename(named), hashlib.sha256(read.read()).hexdigest()))
+        for name, size in sorted(sizes.items()):
+            out.write("host %s %s\n" % (name, _numbers(size)))
     print("wrote %s" % built)

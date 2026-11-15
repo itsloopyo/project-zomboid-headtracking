@@ -72,6 +72,9 @@ final class Models {
     static final float FIRST_DYED_MATERIAL = FIRST_MATERIAL + SURFACES;
 
     private static final String RESOURCE = "/models/furniture.bin.gz";
+    /** The list of the batches of props the build writes beside this class: see scripts/build.ps1 and Props. */
+    private static final String PROP_BATCHES = "props-batches.txt";
+    private static volatile List<String> propBatches;
     private static final int MAGIC = 'C' | 'U' << 8 | 'F' << 16 | 'M' << 24;
     private static final int VERSION = 3;
     private static final int VERTEX_BYTES = 6 * Float.BYTES + 2;
@@ -255,9 +258,56 @@ final class Models {
 
     /**
      * The model of that name, read from the jar the first time one is asked for, once whichever threads ask: the
-     * furniture's, then the props' of every batch beside it (Props.batches).
+     * furniture's, then the props' of every batch (propBatches) from the props' own art jar.
      */
     static Model get(String name) {
+        Model model = all().get(name);
+        if (model == null) {
+            throw new IllegalStateException("the jar's models have none called " + name);
+        }
+        return model;
+    }
+
+    /** Whether the jar's models have one of that name. */
+    static boolean has(String name) {
+        return all().containsKey(name);
+    }
+
+    /**
+     * The names of the batches of props the jar holds, in order. Read here, with the models, and not in Props: the
+     * models are read whether or not the props are on, and nothing of Props runs while they are off (Faults).
+     */
+    static List<String> propBatches() {
+        List<String> names = propBatches;
+        if (names == null) {
+            List<String> read = new java.util.ArrayList<>();
+            try (InputStream in = Models.class.getResourceAsStream(PROP_BATCHES)) {
+                if (in == null) {
+                    throw new IllegalStateException("the jar has no " + PROP_BATCHES + " beside " + Models.class.getName() + ": the build writes it");
+                }
+                for (String line : new String(in.readAllBytes(), StandardCharsets.US_ASCII).split("\\R")) {
+                    if (!line.isBlank()) {
+                        read.add(line.trim());
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(PROP_BATCHES + " could not be read", e);
+            }
+            propBatches = names = List.copyOf(read);
+        }
+        return names;
+    }
+
+    /** Where a batch of props' models are in the jars, and where its file of what stands where. */
+    static String propModelsOf(String batch) {
+        return "/props/" + batch + ".bin.gz";
+    }
+
+    static String propPlacesOf(String batch) {
+        return "/props/" + batch + ".txt";
+    }
+
+    private static Map<String, Model> all() {
         Map<String, Model> models = loaded;
         if (models == null) {
             synchronized (Models.class) {
@@ -266,18 +316,14 @@ final class Models {
                     models = new LinkedHashMap<>();
                     int[] at = new int[2];
                     readResource(RESOURCE, models, at);
-                    for (String batch : Props.batches()) {
-                        readResource(Props.modelsOf(batch), models, at);
+                    for (String batch : propBatches()) {
+                        readResource(propModelsOf(batch), models, at);
                     }
                     loaded = models;
                 }
             }
         }
-        Model model = models.get(name);
-        if (model == null) {
-            throw new IllegalStateException("the jar's models have none called " + name);
-        }
-        return model;
+        return models;
     }
 
     private static void readResource(String resource, Map<String, Model> into, int[] at) {
