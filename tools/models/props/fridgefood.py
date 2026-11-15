@@ -92,7 +92,7 @@ def stand_at(name):
     return -0.2 if name == "glass_fridge" else -0.55, -0.15, shelf
 
 
-def made(model, name, around):
+def made(model, around):
     props.stands_on(model, around)
     return model
 
@@ -105,7 +105,7 @@ def can(name, around):
     F.lathe(top, [(0.0, z + 0.108), (0.03, z + 0.108), (0.03, z + 0.12), (0.0, z + 0.12)], cx=x, cy=y, segments=10)
     model.turned(body, "paint")
     model.turned(top, "steel")
-    return made(model, name, around)
+    return made(model, around)
 
 
 def bottle(name, around):
@@ -116,7 +116,7 @@ def bottle(name, around):
     F.lathe(cap, [(0.0, z + 0.2), (0.015, z + 0.2), (0.015, z + 0.214), (0.0, z + 0.214)], cx=x, cy=y, segments=8)
     model.turned(body, "paint")
     model.turned(cap, "plastic")
-    return made(model, name, around)
+    return made(model, around)
 
 
 def jug(name, around):
@@ -127,7 +127,7 @@ def jug(name, around):
     model.hard(body, "paint", bevel=0.008, segments=1)
     F.lathe(neck, [(0.0, z + 0.16), (0.022, z + 0.16), (0.022, z + 0.19), (0.0, z + 0.19)], cx=x, cy=y, segments=8)
     model.turned(neck, "plastic")
-    return made(model, name, around)
+    return made(model, around)
 
 
 def carton(name, around):
@@ -136,7 +136,7 @@ def carton(name, around):
     body = bmesh.new()
     F.cuboid(body, x - 0.038, x + 0.038, y - 0.025, y + 0.025, z, z + 0.19)
     model.hard(body, "paint", bevel=0.004, segments=1)
-    return made(model, name, around)
+    return made(model, around)
 
 
 def tub(name, around):
@@ -145,7 +145,7 @@ def tub(name, around):
     body = bmesh.new()
     F.lathe(body, [(0.0, z), (0.058, z), (0.066, z + 0.012), (0.066, z + 0.05), (0.05, z + 0.068), (0.0, z + 0.072)], cx=x, cy=y, segments=12)
     model.turned(body, "paint")
-    return made(model, name, around)
+    return made(model, around)
 
 
 def tray(name, around):
@@ -154,7 +154,7 @@ def tray(name, around):
     body = bmesh.new()
     F.cuboid(body, x - 0.08, x + 0.08, y - 0.05, y + 0.05, z, z + 0.035)
     model.hard(body, "paint", bevel=0.005, segments=1)
-    return made(model, name, around)
+    return made(model, around)
 
 
 def jar(name, around):
@@ -165,7 +165,7 @@ def jar(name, around):
     F.lathe(lid, [(0.0, z + 0.1), (0.041, z + 0.1), (0.041, z + 0.116), (0.0, z + 0.116)], cx=x, cy=y, segments=10)
     model.turned(body, "paint")
     model.turned(lid, "steel")
-    return made(model, name, around)
+    return made(model, around)
 
 
 def roll(name, around):
@@ -174,7 +174,7 @@ def roll(name, around):
     body = bmesh.new()
     F.lathe(body, [(0.0, 0.0), (0.03, 0.0), (0.03, 0.14), (0.0, 0.14)], segments=10, to=F.along_x(x - 0.07, y, z + 0.03))
     model.turned(body, "paint")
-    return made(model, name, around)
+    return made(model, around)
 
 
 MAKERS = {"can": can, "bottle": bottle, "jug": jug, "carton": carton, "tub": tub, "tray": tray, "jar": jar, "roll": roll}

@@ -312,7 +312,7 @@ final class ShopFittingTests {
         String row = "|BlocksPlacement||CanScrap||ContainerCapacity|40|CustomName|Fridge|GroupName|%s|IsFridge||IsMoveAble||Material|Fridge|"
                 + "Material2|Electric|MaterialType|%s|PickUpLevel|3|PickUpWeight|400|ScrapSize|Large|Surface|%d|container|fridge|solidtrans||Facing|";
         // The shop's fridge, black and white, facing south and east, and the metal one a kitchen has, which has no glass.
-        Object[][] singles = {{22, "Industrial", 62, "S", 2}, {23, "Industrial", 62, "E", 1}, {40, "White Industrial", 64, "S", 2}, {41, "White Industrial", 64, "E", 1}};
+        Object[][] singles = {{22, "Industrial", 62, "S", 2}, {23, "Industrial", 62, "E", 1}, {40, "White Industrial", 64, "S", 2}, {41, "White Industrial", 64, "E", 1}, {42, "White Industrial", 64, "N", 0}, {43, "White Industrial", 64, "W", 3}};
         for (Object[] one : singles) {
             Furniture fridge = Furniture.known(TileRows.sprite("appliances_refrigeration_01_" + one[0] + String.format(row, one[1], "Glass", one[2]) + one[3] + "|"));
             check(model(fridge).equals("glass_fridge") && fridge.glazed && fridge.turns == (int) one[4], "tile " + one[0] + " is a glass fridge, glazed: " + model(fridge));
