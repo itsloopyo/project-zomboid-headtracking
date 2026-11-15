@@ -162,6 +162,10 @@ enum Part {
                     + "Aiming, attacking, starting anything else, getting into or out of a seat, or leaving first person puts it down.\n"
                     + "On a server where players can fight, the game's map opens as it does without the mod. false: the map key opens the\n"
                     + "game's map over the screen, as without the mod."),
+    FURNITURE_DECOR("Content", "FurnitureDecor", true, false,
+            "true: with the mod's furniture, what the game paints over a piece of it is made as part of the model where the mod\n"
+                    + "has a model of it: a kitchen counter's door the game paints standing ajar stands open on its hinges. false: what\n"
+                    + "the game paints over the furniture stands on it as the game's picture."),
     SHOTS_FROM_VEHICLE_SEATS("Rules", "ShotsFromVehicleSeats", true, false,
             "true: in first person, sitting in a vehicle with a gun, you can fire through any part of your seat's window, and\n"
                     + "the shot breaks it. false: as in the game, the window has to be opened or broken first. On a server where\n"

@@ -156,6 +156,7 @@ final class OptionsLayout {
             Map.entry("VanillaAnimals", "Animal skins"),
             Map.entry("VanillaFire", "Smoke and firelight"),
             Map.entry("VanillaCabins", "Vehicle interiors"),
+            Map.entry(Part.FURNITURE_DECOR.key, "Furniture decor as models"),
             Map.entry("ShotsThroughWalls", "Bullets through thin walls"),
             Map.entry("ShotsPastTrees", "Bullets past tree trunks"),
             Map.entry("ShotsBreakGlass", "Bullets break windows"),

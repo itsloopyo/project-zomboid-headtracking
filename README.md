@@ -919,6 +919,10 @@ VanillaFire=false
 ; true: the game's own inside of the vehicle you sit in, with its glass cut away. false: the mod's model of the inside,
 ; with its dashboard, instruments, wheel, seats and doors.
 VanillaCabins=false
+; true: with the mod's furniture, what the game paints over a piece of it is made as part of the model where the mod
+; has a model of it: a kitchen counter's door the game paints standing ajar stands open on its hinges. false: what
+; the game paints over the furniture stands on it as the game's picture.
+FurnitureDecor=true
 
 [Rules]
 ; true: your shots go on through stud walls, plank walls, shut doors and windows, losing damage to each by what it

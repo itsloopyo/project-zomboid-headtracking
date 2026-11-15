@@ -35,7 +35,8 @@ final class Faults {
             Map.entry("FishingHold", Part.FISHING_ROD),
             Map.entry("Surroundings", Part.SURROUNDINGS_IN_REFLECTIONS), Map.entry("SurroundingsSchedule", Part.SURROUNDINGS_IN_REFLECTIONS),
             Map.entry("ChunkCentre", Part.HOLD_CHUNK_MAP_CENTRE),
-            Map.entry("SetCaptions", Part.CAPTIONS_OVER_SETS));
+            Map.entry("SetCaptions", Part.CAPTIONS_OVER_SETS),
+            Map.entry("Props", Part.FURNITURE_DECOR));
 
     /** How many parts have been switched off by a fault, so each view can say so once, and their names on the options screen. */
     private static volatile int switchedOff;

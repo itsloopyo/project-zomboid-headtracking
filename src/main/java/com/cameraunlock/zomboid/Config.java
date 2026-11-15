@@ -456,6 +456,7 @@ final class Config {
                             + "with its dashboard, instruments, wheel, seats and doors.",
                     writable | live, false),
         };
+        describeParts("Content");
         rules = new int[] {
             localBool("Rules", "ShotsThroughWalls",
                     "true: your shots go on through stud walls, plank walls, shut doors and windows, losing damage to each by what it\n"

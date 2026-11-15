@@ -24,8 +24,11 @@ final class Own {
     /** The rows each view's world was last built with, known to the logic thread alone. */
     private static final int[] built = new int[View.COUNT];
 
+    /** In what taken compares, the bit of FurnitureDecor, which is a part's row and no bit of Own's. */
+    private static final int PROPS_BUILT = 1 << 30;
+
     static {
-        Arrays.fill(built, ALL | TEXTURES << 16 | FIRE << 16);
+        Arrays.fill(built, ALL | TEXTURES << 16 | FIRE << 16 | PROPS_BUILT);
     }
 
     private Own() {}
@@ -131,6 +134,14 @@ final class Own {
     }
 
     /**
+     * Whether what the game paints over the mod's furniture is made as part of its models where a batch of props makes it
+     * (Props), or stands as the game's picture: FurnitureDecor, a part of its own, which a fault in Props switches off.
+     */
+    static boolean props() {
+        return Part.FURNITURE_DECOR.on();
+    }
+
+    /**
      * Whether the interior of a vehicle sat in is the mod's own model of it: the row as the file
      * has it, in every graphics mode. Off, the game's own is drawn, its glass cut away.
      */
@@ -163,8 +174,9 @@ final class Own {
      * then to be built again.
      */
     static boolean taken(int view) {
-        // The rows the mode shows, and over them the two rows that are asked as the file has them: see paint and fire.
-        int now = on(view) | (paint(view) ? TEXTURES << 16 : 0) | (fire(view) ? FIRE << 16 : 0);
+        // The rows the mode shows, and over them the two rows that are asked as the file has them (see paint and fire), and
+        // whether the props are made.
+        int now = on(view) | (paint(view) ? TEXTURES << 16 : 0) | (fire(view) ? FIRE << 16 : 0) | (props() ? PROPS_BUILT : 0);
         if (now == built[view]) {
             return false;
         }
