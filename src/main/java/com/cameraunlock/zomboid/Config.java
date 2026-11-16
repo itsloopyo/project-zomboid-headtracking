@@ -37,8 +37,7 @@ final class Config {
             FIRST_PERSON = CameraUnlock.HOTKEY_LOCAL, CYCLE_QUALITY = CameraUnlock.HOTKEY_LOCAL << 1,
             CYCLE_STYLE = CameraUnlock.HOTKEY_LOCAL << 2, SPLIT_SCREEN = CameraUnlock.HOTKEY_LOCAL << 4,
             FIRST_PERSON_ALL = CameraUnlock.HOTKEY_LOCAL << 5, CYCLE_QUALITY_ALL = CameraUnlock.HOTKEY_LOCAL << 11,
-            CYCLE_STYLE_ALL = CameraUnlock.HOTKEY_LOCAL << 15,
-            CYCLE_QUALITY_BESIDE_VIEWPOINT = CameraUnlock.HOTKEY_LOCAL << 21, CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL = CameraUnlock.HOTKEY_LOCAL << 22;
+            CYCLE_STYLE_ALL = CameraUnlock.HOTKEY_LOCAL << 15;
     /** Each of those keys' bits by how many times it was tapped: one tap is the first player's, and each is a player's, by number. */
     static final int[] FIRST_PERSON_TAPS = {FIRST_PERSON, CameraUnlock.HOTKEY_LOCAL << 3, CameraUnlock.HOTKEY_LOCAL << 6,
         CameraUnlock.HOTKEY_LOCAL << 7};
@@ -46,8 +45,6 @@ final class Config {
         CameraUnlock.HOTKEY_LOCAL << 10};
     static final int[] CYCLE_STYLE_TAPS = {CYCLE_STYLE, CameraUnlock.HOTKEY_LOCAL << 12, CameraUnlock.HOTKEY_LOCAL << 13,
         CameraUnlock.HOTKEY_LOCAL << 14};
-    // CycleQualityKeyBesideViewpoint is tapped for player 1 and held for every player, with no taps
-    // for players 2, 3 and 4: the bit above HOTKEY_LOCAL << 22 is the sign bit, which core refuses.
     /** What the keys of a player's own rows begin with, by player: the first player's rows are Quality, IsometricQuality and Style. */
     static final String[] PLAYER_ROW = {"", "SecondPlayer", "ThirdPlayer", "FourthPlayer"};
 
@@ -95,10 +92,10 @@ final class Config {
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT], thirdPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
-    private final int cycleQualityKey, cycleQualityKeyBesideViewpoint, cycleStyleKey, splitScreenKey;
+    private final int cycleQualityKey, cycleStyleKey, splitScreenKey;
     /** The keys each key list row comes with, by the row's key: core's four are the game's own per_game rows of cameraunlock-core. */
     static final Map<String, String> DEFAULT_KEYS = Map.of("CycleTrackingModeKey", "PageUp", "YawModeKey", "PageDown", "TrueFreeLookKey", "Insert",
-            "FirstPersonKey", "Delete, ScrollLock, Ctrl+Shift+B", "CycleQualityKey", "F9", "CycleQualityKeyBesideViewpoint", "Home",
+            "FirstPersonKey", "Delete, ScrollLock, Ctrl+Shift+B", "CycleQualityKey", "F9, Ctrl+Shift+J",
             "CycleStyleKey", "F8", "SplitScreenKey", "F7");
     /** The mod's own key list rows, by key. Core's four, CycleTrackingModeKey, YawModeKey, TrueFreeLookKey and FirstPersonKey, are saved by their names. */
     private final Map<String, Integer> keyRows = new HashMap<>();
@@ -138,7 +135,7 @@ final class Config {
      * graphics mode draws, and the rows of [Voice]. They are writable too, and a writable row that is not a key
      * list or a microphone's name is a setting on the game's options screen (OptionsPage), which shows the
      * microphones as lists of its own. SecondPlayerUdpPort, ThirdPlayerUdpPort, FourthPlayerUdpPort,
-     * CycleQualityKey, CycleQualityKeyBesideViewpoint, CycleStyleKey and SplitScreenKey are the
+     * CycleQualityKey, CycleStyleKey and SplitScreenKey are the
      * mod's own too, and read at the start.
      */
     Config(CameraUnlock core) {
@@ -376,12 +373,9 @@ final class Config {
                 "Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom\n"
                         + "(Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their\n"
                         + "rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,\n"
-                        + "or hold for every player.",
+                        + "or hold for every player. While Project Viewpoint, another mod, runs, F9 is left out, as Viewpoint takes a\n"
+                        + "screenshot on F9.",
                 writable, DEFAULT_KEYS.get("CycleQualityKey"), CYCLE_QUALITY_TAPS, CYCLE_QUALITY_ALL);
-        cycleQualityKeyBesideViewpoint = core.configLocalHotkeyHeld("CycleQualityKeyBesideViewpoint",
-                "Goes to the next graphics mode in place of CycleQualityKey while Project Viewpoint, another mod, runs, as\n"
-                        + "Viewpoint takes a screenshot on F9. Tap for player 1, or hold for every player.",
-                writable, DEFAULT_KEYS.get("CycleQualityKeyBesideViewpoint"), CYCLE_QUALITY_BESIDE_VIEWPOINT, CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL);
         cycleStyleKey = core.configLocalHotkeyTaps("CycleStyleKey",
                 "Goes to a player's next picture style: Vivid, Natural, Bleak, Warm, Cold (Style, and for players 2, 3 and 4\n"
                         + "their rows of [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for\n"
@@ -391,7 +385,6 @@ final class Config {
                 "With two players at the screen, switches between side by side and above and below.", writable,
                 DEFAULT_KEYS.get("SplitScreenKey"), SPLIT_SCREEN);
         keyRows.put("CycleQualityKey", cycleQualityKey);
-        keyRows.put("CycleQualityKeyBesideViewpoint", cycleQualityKeyBesideViewpoint);
         keyRows.put("CycleStyleKey", cycleStyleKey);
         keyRows.put("SplitScreenKey", splitScreenKey);
         own = new int[] {
@@ -704,13 +697,18 @@ final class Config {
     CameraUnlock.Config load(Path file, Path defaults) {
         CameraUnlock.Config loaded = core.configLoad(file, defaults);
         Log.info(file + ": " + LOAD_STATUS[loaded.status]);
-        // Up to 0.5.0 the file held Delete alone here, with Scroll Lock on a row of its own for while Project Viewpoint runs.
-        // Core keeps no record of an upgrade made, so Delete alone is widened at every start: the options page saves the whole
-        // list for its Default, and only a file edited by hand holds Delete alone again.
-        if (loaded.status == CameraUnlock.LOAD_CANONICAL && firstPersonKeys().equals(OLD_FIRST_PERSON_KEYS)) {
-            String keys = DEFAULT_KEYS.get("FirstPersonKey");
-            saved("FirstPersonKey \"" + keys + "\" in place of \"" + OLD_FIRST_PERSON_KEYS + "\", the keys the mod used to come with",
-                    core.configSaveConceptKeys("FirstPersonKey", keys));
+        // Up to 0.5.0 the file held Delete alone for FirstPersonKey and F9 alone for CycleQualityKey, each with a row of its
+        // own for while Project Viewpoint runs. Core keeps no record of an upgrade made, so either one alone is widened at every
+        // start: the options page saves the whole list for its Default, and only a file edited by hand holds it alone again.
+        if (loaded.status == CameraUnlock.LOAD_CANONICAL) {
+            for (Map.Entry<String, String> old : OLD_KEYS.entrySet()) {
+                if (keys(old.getKey()).equals(old.getValue())) {
+                    String keys = DEFAULT_KEYS.get(old.getKey());
+                    Integer local = keyRows.get(old.getKey());
+                    saved(old.getKey() + " \"" + keys + "\" in place of \"" + old.getValue() + "\", the keys the mod used to come with",
+                            local != null ? core.configSaveKeys(local, keys) : core.configSaveConceptKeys(old.getKey(), keys));
+                }
+            }
         }
         if (loaded.status == CameraUnlock.LOAD_DEFERRED || loaded.status == CameraUnlock.LOAD_LEGACY_REFUSED
                 || loaded.status == CameraUnlock.LOAD_UNREADABLE) {
@@ -720,7 +718,8 @@ final class Config {
         return loaded;
     }
 
-    private static final String OLD_FIRST_PERSON_KEYS = "Delete";
+    /** The keys a row came with up to 0.5.0, by the row's key, for the rows that come with more now. */
+    private static final Map<String, String> OLD_KEYS = Map.of("FirstPersonKey", "Delete", "CycleQualityKey", "F9");
 
     /** What the screen last said about the file, and how many times it has had something to say. */
     private static volatile String trouble;
@@ -909,20 +908,6 @@ final class Config {
 
     boolean saveStyle(int player, Style row) {
         return saved("player " + (player + 1) + "'s picture style", core.configSaveInt(style[player], row.ordinal()));
-    }
-
-    /** The keys that switch first person, as the file names them. */
-    String firstPersonKeys() {
-        return core.configGetConceptKeys("FirstPersonKey");
-    }
-
-    String cycleQualityKeys() {
-        return core.configGetText(cycleQualityKey);
-    }
-
-    /** The keys that go to the next graphics mode while Project Viewpoint runs, as the file names them. */
-    String cycleQualityKeysBesideViewpoint() {
-        return core.configGetText(cycleQualityKeyBesideViewpoint);
     }
 
     /** A key list row's keys now, as the file names them, by the row's key: the load's, or the last the options screen saved. */

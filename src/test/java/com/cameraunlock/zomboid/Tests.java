@@ -3273,17 +3273,20 @@ public final class Tests {
                 "a list the game's control cannot show whole shows the first of it that it can, and is said not to be shown whole");
         check(KeyNames.shown("Ctrl+Shift+G").equals(new KeyNames.Binding(0, false, false, false)), "and one with no key the control can show shows none");
         for (Map.Entry<String, String> defaults : Config.DEFAULT_KEYS.entrySet()) {
-            if (!defaults.getKey().equals("FirstPersonKey")) {
+            if (!defaults.getKey().equals("FirstPersonKey") && !defaults.getKey().equals("CycleQualityKey")) {
                 check(KeyNames.shownWhole(defaults.getValue()), "the keys a row comes with, " + defaults.getValue() + ", show whole on the options screen");
             }
         }
-        // FirstPersonKey comes with three keys by owner ruling, more than the game's control shows.
-        String firstPerson = Config.DEFAULT_KEYS.get("FirstPersonKey");
-        int delete = 211;
+        // FirstPersonKey and CycleQualityKey come with more keys by owner ruling than the game's control shows.
+        String firstPerson = Config.DEFAULT_KEYS.get("FirstPersonKey"), quality = Config.DEFAULT_KEYS.get("CycleQualityKey");
+        int delete = 211, f9 = 67;
         check(KeyNames.shown(firstPerson).equals(new KeyNames.Binding(delete, false, false, false))
                         && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson).contains("CameraUnlock.ini holds Delete or Scroll Lock or Ctrl+Shift+B"),
                 "the first person key's three show as Delete, with its tip naming all three: "
                         + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson));
+        check(KeyNames.shown(quality).equals(new KeyNames.Binding(f9, false, false, false))
+                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[1], quality).contains("CameraUnlock.ini holds F9 or Ctrl+Shift+J"),
+                "the graphics mode key's two show as F9, with its tip naming both: " + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[1], quality));
         for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
             check(Config.DEFAULT_KEYS.containsKey(row.id()), row.id() + " on the options screen is a key list row with keys it comes with");
         }

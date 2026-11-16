@@ -186,8 +186,7 @@ final class OptionsPage {
         call(section, "addDescription", OptionsLayout.keysNote());
         List<KeyControl> keys = new ArrayList<>();
         for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
-            // FirstPersonKey as it is heard now: less Delete while Project Viewpoint runs.
-            KeyNames.Binding shown = KeyNames.shown(row.id().equals("FirstPersonKey") ? Tracking.firstPersonKeys() : Tracking.keys(row.id()));
+            KeyNames.Binding shown = KeyNames.shown(Tracking.heardKeys(row.id()));
             KahluaTable table = (KahluaTable) call(section, "addKeyBind", row.id(), row.label(), shown.code(), row.tip());
             // What the game's key dialog sets for Default, which addKeyBind takes from the key it was handed.
             table.rawset("defaultkey", (double) KeyNames.shown(Config.DEFAULT_KEYS.get(row.id())).code());
@@ -519,7 +518,7 @@ final class OptionsPage {
      */
     private static void showKeys(KeyControl key) {
         String held = Tracking.keys(key.row.id());
-        KeyNames.Binding shown = KeyNames.shown(held);
+        KeyNames.Binding shown = KeyNames.shown(Tracking.heardKeys(key.row.id()));
         if (!(key.table.rawget("element") instanceof KahluaTable element)) {
             throw new IllegalStateException("the game's options screen made no control for " + key.row.id());
         }

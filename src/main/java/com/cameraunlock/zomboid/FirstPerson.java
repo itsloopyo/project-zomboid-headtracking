@@ -967,7 +967,7 @@ public final class FirstPerson {
      */
     private void sayHints(IsoPlayer player, String other, String why) {
         boolean pad = View.onController(player);
-        String switchKeys = Tracking.firstPersonKeys(), qualityKeys = Tracking.cycleQualityKeys();
+        String switchKeys = Tracking.heardKeys("FirstPersonKey"), qualityKeys = Tracking.heardKeys("CycleQualityKey");
         hintIsLater = false;
         hint = pad ? "Double-tap Back for " + other : switchKeys.isEmpty() ? null : "Press " + OptionsLayout.keys(switchKeys) + " for " + other;
         hintAt = System.nanoTime();

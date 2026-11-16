@@ -321,16 +321,14 @@ final class OptionsLayout {
                         + "the isometric view, or else every player back into it. While Project Viewpoint, another mod, runs, Delete is "
                         + "left out, as Viewpoint opens its settings window on Delete."),
         new KeyRow("CycleQualityKey", "Next graphics mode",
-                "Goes to the next graphics mode of the view you are in. Tapped and held as the first person key is."),
+                "Goes to the next graphics mode of the view you are in. Tapped and held as the first person key is. While Project "
+                        + "Viewpoint, another mod, runs, F9 is left out, as Viewpoint takes a screenshot on F9."),
         new KeyRow("CycleStyleKey", "Next picture style", "Goes to the next picture style. Tapped and held as the first person key is."),
         new KeyRow("SplitScreenKey", "Switch split screen layout",
                 "With two players at the screen, switches between side by side and above and below."),
         new KeyRow("CycleTrackingModeKey", "Next tracking mode", "Goes to the next tracking mode: rotation and position, rotation only, position only."),
         new KeyRow("YawModeKey", "Switch horizon-relative head turns", "Switches horizon-relative head turns on or off."),
         new KeyRow("TrueFreeLookKey", "Next aim mode", "Goes to the next aim mode: sights locked, free look with a marker, stock sights."),
-        new KeyRow("CycleQualityKeyBesideViewpoint", "Next graphics mode beside Viewpoint",
-                "Used in place of the graphics mode key while Project Viewpoint, another mod, runs, as Viewpoint takes a screenshot on "
-                        + "F9. Tap for player 1, or hold for every player."),
     };
 
     /** What the page says under Keys, above the keys themselves. */

@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -40,15 +41,8 @@ final class Tracking {
     static final int[] AIM_MODES = {CameraUnlock.AIM_SIGHTS_LOCKED, CameraUnlock.AIM_FREE_LOOK_MARKER, CameraUnlock.AIM_STOCK_SIGHTS};
 
     private static final long WATCH_MILLISECONDS = 1000;
-    /** Every bit of the presses of the graphics mode key, which Project Viewpoint takes, and of the row that stands in for it while it runs. */
-    private static final int VIEWPOINT_TAKES_BITS = bits(Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL),
-            BESIDE_VIEWPOINT_BITS = Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL;
     /** Set once Project Viewpoint has started: see viewpointStarted. */
     private static volatile boolean viewpoint;
-
-    static boolean viewpointRunning() {
-        return viewpoint;
-    }
 
     private static CameraUnlock core;
     private static Config config;
@@ -734,7 +728,7 @@ final class Tracking {
                 outOfSave = false;
                 core.hotkeysDrop();
             } else {
-                pressed = act(keysNow(core.hotkeysTake()));
+                pressed = act(core.hotkeysTake());
                 if ((pressed & Config.SPLIT_SCREEN) != 0) {
                     if (IsoPlayer.numPlayers == 2) {
                         turnSplitScreen();
@@ -1074,20 +1068,24 @@ final class Tracking {
         bits.updateAndGet(was -> on ? was | 1 << player : was & ~(1 << player));
     }
 
-    /** The key Project Viewpoint opens its settings window on, which no key list listens for while it runs. */
-    static final String VIEWPOINT_KEY = "Delete";
+    /**
+     * The keys Project Viewpoint takes, which no key list listens for while it runs: it opens its
+     * settings window on Delete, FirstPersonKey's, and takes a screenshot on F9, CycleQualityKey's.
+     */
+    static final String VIEWPOINT_KEYS = "Delete, F9";
 
-    /** The keys that switch first person now, as CameraUnlock.ini names them, less Delete while Project Viewpoint runs. */
-    static String firstPersonKeys() {
-        String keys = config.firstPersonKeys();
-        return viewpoint ? withoutKey(keys, VIEWPOINT_KEY) : keys;
+    /** A key list row's keys as they are heard now, by the row's key: as CameraUnlock.ini names them, less Delete and F9 while Project Viewpoint runs. */
+    static String heardKeys(String row) {
+        String keys = config.keys(row);
+        return viewpoint ? withoutKeys(keys, VIEWPOINT_KEYS) : keys;
     }
 
-    /** A key list less every entry whose key is `key`, with any modifiers, as core leaves them out. */
-    static String withoutKey(String keys, String key) {
+    /** A key list less every entry whose key is one of `left`, with any modifiers, as core leaves them out. */
+    static String withoutKeys(String keys, String left) {
+        List<String> leftOut = List.of(left.toLowerCase(Locale.ROOT).split(", "));
         StringBuilder kept = new StringBuilder();
         for (String entry : keys.split(", ")) {
-            if (entry.isEmpty() || entry.substring(entry.lastIndexOf('+') + 1).equalsIgnoreCase(key)) {
+            if (entry.isEmpty() || leftOut.contains(entry.substring(entry.lastIndexOf('+') + 1).toLowerCase(Locale.ROOT))) {
                 continue;
             }
             kept.append(kept.isEmpty() ? "" : ", ").append(entry);
@@ -1096,50 +1094,17 @@ final class Tracking {
     }
 
     /**
-     * Project Viewpoint, another mod, has started in this process, and opens its settings window on
-     * Delete and takes a screenshot on F9, CycleQualityKey's: from now on no key list listens for
-     * Delete, so FirstPersonKey switches the view on its other keys, and the keys of
-     * CycleQualityKeyBesideViewpoint stand in for CycleQualityKey's. A mod's jar stays loaded to the
-     * end of the process.
+     * Project Viewpoint, another mod, has started in this process: from now on no key list listens
+     * for Delete or F9, which it takes, so FirstPersonKey and CycleQualityKey work on their other
+     * keys. A mod's jar stays loaded to the end of the process.
      */
     static void viewpointStarted() {
         if (!viewpoint) {
-            Core.library().hotkeysLeaveOut(VIEWPOINT_KEY);
+            Core.library().hotkeysLeaveOut(VIEWPOINT_KEYS);
             viewpoint = true;
-            Log.info("Project Viewpoint is running: no hotkey listens for Delete, which opens its settings, and the graphics mode"
-                    + " switches on the keys of CycleQualityKeyBesideViewpoint in place of CycleQualityKey's");
+            Log.info("Project Viewpoint is running: no hotkey listens for Delete, which opens its settings, or F9, which takes its"
+                    + " screenshots");
         }
-    }
-
-    /**
-     * The presses with the graphics mode key's bits from the row that switches it now:
-     * CycleQualityKeyBesideViewpoint's while Project Viewpoint runs.
-     */
-    static int keysNow(int pressed) {
-        if (!viewpoint) {
-            return pressed & ~BESIDE_VIEWPOINT_BITS;
-        }
-        int now = pressed & ~(VIEWPOINT_TAKES_BITS | BESIDE_VIEWPOINT_BITS);
-        if ((pressed & Config.CYCLE_QUALITY_BESIDE_VIEWPOINT) != 0) {
-            now |= Config.CYCLE_QUALITY;
-        }
-        if ((pressed & Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) != 0) {
-            now |= Config.CYCLE_QUALITY_ALL;
-        }
-        return now;
-    }
-
-    private static int bits(int[] taps, int held) {
-        int all = held;
-        for (int bit : taps) {
-            all |= bit;
-        }
-        return all;
-    }
-
-    /** The keys that go to the next graphics mode now, as CameraUnlock.ini names them: CycleQualityKeyBesideViewpoint's while Project Viewpoint runs. */
-    static String cycleQualityKeys() {
-        return viewpoint ? config.cycleQualityKeysBesideViewpoint() : config.cycleQualityKeys();
     }
 
     /** The view a player switched to, kept for the next load. */
