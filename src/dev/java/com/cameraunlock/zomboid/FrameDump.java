@@ -27,7 +27,7 @@ import zombie.core.SpriteRenderer;
 import zombie.core.textures.TextureDraw;
 
 /**
- * Pause, in a development build: one frame written out whole, for looking at what the
+ * Caps Lock, in a development build: one frame written out whole, for looking at what the
  * picture is made of. Into the game's cache folder, framedump/<time>: the frame before the
  * game's interface (clean.png) and with it (hud.png), each player's sun shadow maps (near,
  * far, roof, and the torch's when it is lit) as 16 bit pictures stretched over the depths they

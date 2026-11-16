@@ -123,8 +123,8 @@ public final class DevKeys {
     /** The down arrow. F7 is the mod's split screen key. */
     private static final int TAKE_VEHICLE_KEY = 208;
     private static final String WATCH = "Base.WristWatch_Left_DigitalBlack";
-    /** Pause: see FrameDump. */
-    private static final int FRAME_DUMP_KEY = 197;
+    /** Caps Lock: see FrameDump. */
+    private static final int FRAME_DUMP_KEY = 58;
     private static final float TAKE_WITHIN = 5f;
     /** The apostrophe. */
     private static final int INVINCIBLE_KEY = 40;
@@ -319,7 +319,7 @@ public final class DevKeys {
         String told = null;
         if (!said) {
             said = true;
-            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right Ctrl gives the next KI5 car and Shift with it the one before, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Pause dumps the frame and the shadow maps");
+            Log.info("development build: 0 clears out the zombies and pressed again puts some back round you, . goes to the next place and , to the one before, 9 puts the clock on an hour and 8 puts it back one, Backspace holds the next season of spring, summer, autumn and winter, End holds the next weather of clear, rainy, snowy and stormy, Home starts a fire where the reticle is, ; gives the next of the game's firearms, any gun held never runs dry, [ gives a hunting rifle with the next of the three scopes on it, / gives a lit flashlight, Up arrow puts the graphics at Low and High in turn, ' makes you invincible, Down arrow takes the nearest vehicle, Right Ctrl gives the next KI5 car and Shift with it the one before, Right arrow and Left arrow give the next and the last of a .44 pistol, a pump shotgun and an automatic rifle, Shift with them goes to the next and the last test scene, Caps Lock dumps the frame and the shadow maps");
         }
         if (GameKeyboard.isKeyPressed(FRAME_DUMP_KEY)) {
             FrameDump.ask();

@@ -287,7 +287,7 @@ Centring belongs to your tracker, recenter there.
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
-| `F9` or `Ctrl+Shift+J` | Change graphics quality of the view you're in (`F9` is skipped while Project Viewpoint runs) |
+| `F9` or `Pause` | Change graphics quality of the view you're in (`F9` is skipped while Project Viewpoint runs) |
 | `F8` | Change picture style |
 | `F7` | Arrange two-player split screen side by side or above and below |
 
@@ -297,7 +297,7 @@ Centring belongs to your tracker, recenter there.
   - **Sights locked** keeps your eye lined up with the sights while you aim.
   - **Free look with a marker** keeps the gun pointing where you aim while your head looks around it, and the game's reticle marks where the shot will land.
   - **Stock sights** fades out head turning and leaning while the sights are up, leaving only head tilt, so you see the game's normal sight picture.
-- `F9` or `Ctrl+Shift+J` cycles the graphics mode of the view you're in: Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. Going past Low with every Mod content box unticked ticks them all again, and in the isometric view with first person turned off it ticks First person view, since without them every mode looks like Low. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
+- `F9` or `Pause` cycles the graphics mode of the view you're in: Low, Medium, High and Custom in first person, or Low, Medium, High and Custom in the isometric view. The other view keeps its own mode. Going past Low with every Mod content box unticked ticks them all again, and in the isometric view with first person turned off it ticks First person view, since without them every mode looks like Low. When you switch views, the screen names the mode of the view you switched to, like `First person (High)` or `Isometric (Low)`.
 - When a player's first person view is bigger than 2560x1440, every mode except Custom renders it with no more pixels than it would at 2560x1440, then scales it up to fit. In split screen that goes by each player's own part of the screen. Custom renders at its `RenderScale` at any size, and so does the isometric view.
 - `F8` cycles the picture style: Vivid, Natural, Bleak, Warm and Cold. Each new style fades in over most of a second.
 - In split screen each player has their own graphics mode and picture style. Tap `F9` or `F8` once for player 1, twice for player 2, three times for player 3 and four times for player 4, or hold it to change everyone. Settings for players 2, 3 and 4 are under `[Players]` in `CameraUnlock.ini` and on the options page.
@@ -548,7 +548,7 @@ FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B
 ; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
 ; or hold for every player. While Project Viewpoint, another mod, runs, F9 is left out, as Viewpoint takes a
 ; screenshot on F9.
-CycleQualityKey=F9, Ctrl+Shift+J
+CycleQualityKey=F9, Pause
 ; Goes to a player's next picture style: Vivid, Natural, Bleak, Warm, Cold (Style, and for players 2, 3 and 4
 ; their rows of [Players]). Tap once for player 1, twice for player 2, three times for player 3, four times for
 ; player 4, or hold for every player.
@@ -1064,7 +1064,7 @@ Picking an option in one of these lists changes the settings it covers on the pa
 
 If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) alongside this mod, head tracking moves Viewpoint's camera too: yaw, pitch, roll and lean, with the lean held off walls as it is in first person. Head tracking has to be on for this: the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup`.
 
-Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod leaves `Delete` and `F9` out of its keys, with or without Shift, Ctrl or Alt. It switches first person on `Scroll Lock` or `Ctrl+Shift+B` (the rest of `FirstPersonKey`) and the graphics mode on `Ctrl+Shift+J` (the rest of `CycleQualityKey`), tapped and held as usual, and the hint on screen names those keys.
+Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod leaves `Delete` and `F9` out of its keys, with or without Shift, Ctrl or Alt. It switches first person on `Scroll Lock` or `Ctrl+Shift+B` (the rest of `FirstPersonKey`) and the graphics mode on `Pause` (the rest of `CycleQualityKey`), tapped and held as usual, and the hint on screen names those keys.
 
 Viewpoint's view and this mod's first person take turns, since each turns the movement keys by its own camera: switching Viewpoint's view on switches first person off, and switching first person on from Viewpoint's first person mixes this mod's picture in over Viewpoint's at the eye, then switches Viewpoint's view off.
 

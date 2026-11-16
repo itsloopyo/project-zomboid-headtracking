@@ -3286,7 +3286,7 @@ public final class Tests {
                 "the first person key's three show as Delete, with its tip naming all three: "
                         + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson));
         check(KeyNames.shown(quality).equals(new KeyNames.Binding(f9, false, false, false))
-                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[1], quality).contains("CameraUnlock.ini holds F9 or Ctrl+Shift+J"),
+                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[1], quality).contains("CameraUnlock.ini holds F9 or Pause"),
                 "the graphics mode key's two show as F9, with its tip naming both: " + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[1], quality));
         for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
             check(Config.DEFAULT_KEYS.containsKey(row.id()), row.id() + " on the options screen is a key list row with keys it comes with");

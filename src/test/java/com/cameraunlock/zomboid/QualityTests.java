@@ -668,7 +668,7 @@ final class QualityTests {
         }
         Quality.set(0, was);
         String modes = firstPerson + " in first person; " + String.join(", ", Quality.overheadWords().split(",")) + " in the isometric view";
-        check(text.contains("F9 or Ctrl+Shift+J  Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name the graphics mode key's modes as " + modes);
+        check(text.contains("F9 or Pause  Cycle graphics mode: " + modes + "&echo"), "install.cmd's controls name the graphics mode key's modes as " + modes);
         check(text.replace("\r\n", "").indexOf('\n') < 0, "every line of install.cmd ends in CR LF");
     }
 
