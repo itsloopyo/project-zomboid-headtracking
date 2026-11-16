@@ -23,6 +23,7 @@ final class OutdoorTests {
         Checks.run("aPetrolPumpIsStoodByOneOfItsTwoSpritesWhileTheOtherIsThere", OutdoorTests::aPetrolPumpIsStoodByOneOfItsTwoSpritesWhileTheOtherIsThere);
         Checks.run("aHeapOfSandIsOneModelOverItsFourSquares", OutdoorTests::aHeapOfSandIsOneModelOverItsFourSquares);
         Checks.run("aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted", OutdoorTests::aWarningSignsPlateShowsItsSpriteFacingTheWayItIsPainted);
+        Checks.run("aNewspaperBoxFacesItsWindowAndShowsItsSpritesFront", OutdoorTests::aNewspaperBoxFacesItsWindowAndShowsItsSpritesFront);
         Checks.run("aBurntFencesPostStandsWhereItsSpritePaintsItsFoot", OutdoorTests::aBurntFencesPostStandsWhereItsSpritePaintsItsFoot);
         Checks.run("aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost", OutdoorTests::aCrossingSignalFacesTheWayItsSpriteSaysAndStandsOnItsPost);
         Checks.run("aStreetLampDrawnInTwoPiecesApartStandsWhole", OutdoorTests::aStreetLampDrawnInTwoPiecesApartStandsWhole);
@@ -377,6 +378,38 @@ final class OutdoorTests {
         float left = (south.a - sign.width() / 2f - plateB) * 64f + 64f, right = (south.a + sign.width() / 2f - plateB) * 64f + 64f;
         Checks.check(Math.abs(left - 26f) < 5f && Math.abs(right - 94f) < 5f, "its plate is as wide as the sprite paints it: " + left + " to " + right);
         Checks.check(unnamed("street_roadsigns_01_0") == null && unnamed("street_roadsigns_01_32") == null, "the boards on two posts and the rest area's signs are not warning signs");
+    }
+
+    private static void aNewspaperBoxFacesItsWindowAndShowsItsSpritesFront() {
+        // Read off the pictures: the window is on the east face of 80, 84, 88 and 92 and the south of the next; the post's
+        // kind show their back on the east and south faces of 82 and 83, the ground's on the south and east of 86 and 87.
+        int[] posted = {Outdoors.EAST, Outdoors.SOUTH, Outdoors.WEST, Outdoors.NORTH}, ground = {Outdoors.EAST, Outdoors.SOUTH, Outdoors.NORTH, Outdoors.WEST};
+        for (int place = 80; place <= 95; place++) {
+            String name = "street_decoration_01_" + place;
+            Outdoors.Piece box = unnamed(name);
+            holds(box, name + " has a model");
+            if (box == null) {
+                continue;
+            }
+            int first = place & ~3;
+            boolean onPost = first == 80 || first == 88;
+            int faces = (onPost ? posted : ground)[place - first];
+            Checks.check(box.model.equals(onPost ? "newspaper_pedestal" : "newspaper_box") && box.turns == faces, name + " is its kind, facing " + faces + ": " + box.model + " " + box.turns);
+            Checks.check(box.pictured && box.paneY == (onPost ? Outdoors.NEWSPAPER_PEDESTAL_PANE_Y : Outdoors.NEWSPAPER_BOX_PANE_Y)
+                    && box.dyed == 1 << Models.PANE && box.alsoDyed == 1 << Models.PAINT, name + "'s front shows its sprite and its paint takes the sprite's colour");
+            String painter = faces == Outdoors.NORTH ? "street_decoration_01_" + (first + 1) : faces == Outdoors.WEST ? "street_decoration_01_" + first : null;
+            Checks.check(java.util.Objects.equals(box.paintedBy, painter), name + " painted from its back shows the front of the one of its kind facing the other way: " + box.paintedBy);
+        }
+        for (String model : new String[] {"newspaper_pedestal", "newspaper_box"}) {
+            Models.Model made = Models.get(model);
+            Checks.check(made.first[Models.PANE + 1] > made.first[Models.PANE] && made.first[Models.PAINT + 1] > made.first[Models.PAINT], model + " has a pane and paint");
+        }
+        // The cabinet of 85, which faces south, is 0.75 across and 0.62 deep; its south-east foot is painted at column 67, row 247.5.
+        Outdoors.Piece south = unnamed("street_decoration_01_85");
+        float eastA = south.a + 0.375f, southB = south.b + 0.31f;
+        Checks.check(Math.abs((eastA - southB) * 64f + 64f - 67f) < 2f && Math.abs((eastA + southB) * 32f + 192f - 247.5f) < 2f,
+                "a newspaper box on the ground stands where its sprite paints its foot: " + south.a + ", " + south.b);
+        Checks.check(unnamed("street_decoration_01_79") == null && unnamed("street_decoration_01_96") == null, "the sprites beside them on the sheet are no newspaper box");
     }
 
     private static void aStreetNameBladeReachesFromItsSignalsPostTheWayItsSpriteDoes() {

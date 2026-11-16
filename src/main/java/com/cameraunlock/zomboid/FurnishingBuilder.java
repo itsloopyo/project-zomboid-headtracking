@@ -378,14 +378,34 @@ final class FurnishingBuilder {
                 high = piece.dyeHigh;
             }
             float dyeA = WallHung.a(piece.wall, middle), dyeB = WallHung.b(piece.wall, middle);
+            // What has its colours in places of its own, a neon sign's two tubes, takes them there: the middle of what it paints is bare.
+            if (piece.dyedInPlace) {
+                dyeA = piece.dyeA;
+                dyeB = piece.dyeB;
+                high = piece.dyeHigh;
+            }
             if (!texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.frame, dyeA, dyeB)), Math.round(SpriteGeometry.frameV(build.frame, dyeA, dyeB, high)))) {
                 return false;
             }
+            int also = piece.dyedInPlace ? piece.alsoDyed : 0;
+            float alsoU = 0f, alsoV = 0f;
+            if (also != 0 && !texture.isMaskSet(Math.round(SpriteGeometry.frameU(build.frame, piece.alsoA, piece.alsoB)),
+                    Math.round(SpriteGeometry.frameV(build.frame, piece.alsoA, piece.alsoB, piece.alsoHigh)))) {
+                also = 0;
+                if (UNDYED.add(sprite.getName()) && DevBuild.ON) {
+                    Log.info("furniture " + sprite.getName() + ": nothing painted where its second colour is taken, at (" + piece.alsoA + ", " + piece.alsoB
+                            + ", " + piece.alsoHigh + "): those surfaces keep the model's own colour");
+                }
+            }
+            if (also != 0) {
+                alsoU = SpriteGeometry.textureU(build.frame, piece.alsoA, piece.alsoB);
+                alsoV = SpriteGeometry.textureV(build.frame, piece.alsoA, piece.alsoB, piece.alsoHigh);
+            }
             standHung(piece, model, x, y, z, clear, texture.getID(), piece.dyed, SpriteGeometry.textureU(build.frame, dyeA, dyeB),
-                    SpriteGeometry.textureV(build.frame, dyeA, dyeB, high));
+                    SpriteGeometry.textureV(build.frame, dyeA, dyeB, high), also, alsoU, alsoV);
         } else {
             float front = standHung(piece, model, x, y, z, clear, !piece.pictured ? WorldScene.PLAIN : picture != Decor.NONE ? Decor.held(picture) : texture.getID(),
-                    piece.pictured ? 1 << Models.PANE : 0, 0f, 0f);
+                    piece.pictured ? 1 << Models.PANE : 0, 0f, 0f, 0, 0f, 0f);
             if (piece.faced && Own.textures(build.playerIndex)) {
                 layFacing(texture, piece, x, y, z, front);
             }
@@ -455,7 +475,7 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.TOP] = drawn.top();
             Models.Model model = placeHung(piece, build.hungAt, 0f, hungPlace);
             float scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
-            standHung(piece, model, x, y, z, 0f, Decor.held(picture), 1 << Models.PANE, 0f, 0f);
+            standHung(piece, model, x, y, z, 0f, Decor.held(picture), 1 << Models.PANE, 0f, 0f, 0, 0f, 0f);
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * scale, (pane[3] - pane[2]) * scaleUp, 0f,
                     Decor.wideForHigh(picture), build.hungShows);
@@ -474,10 +494,12 @@ final class FurnishingBuilder {
 
     /**
      * Stands a model placeHung has just placed, with hungPlace as it left it, on its wall: its back clear of the wall's
-     * skin by standOut, and its dye, dyed surfaces and the place on the dye they take their colour as Models.Instances.add takes them.
+     * skin by standOut, and its dye, dyed surfaces and the place on the dye they take their colour as Models.Instances.add takes them,
+     * and the surfaces that take a second colour from another place on it, and that place.
      * Returns how far its front stands out from the line of the wall's edge.
      */
-    private float standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces, float dyeAtU, float dyeAtV) {
+    private float standHung(Furniture piece, Models.Model model, int x, int y, int z, float standOut, int dye, int dyedSurfaces, float dyeAtU, float dyeAtV,
+            int alsoDyedSurfaces, float alsoAtU, float alsoAtV) {
         float along = hungPlace[ALONG], foot = hungPlace[FOOT], scale = hungPlace[SCALE], scaleUp = hungPlace[SCALE_UP];
         // Its back clear of the wall's skin, which stands that far inside the square's edge.
         Models.turn(piece.turns, 0f, -1f, build.hungWay);
@@ -495,7 +517,7 @@ final class FurnishingBuilder {
         build.building.plain = false;
         build.placed.add(model, build.frame, x, y, x + a + build.hungWay[0] * out, y + b + build.hungWay[1] * out,
                 z * ViewCamera.LEVEL_HEIGHT + (lift[0] + lift[1] + lift[2] + lift[3]) / 4f + rise + foot, piece.turns, scale, scaleUp,
-                dye, dyedSurfaces, dyeAtU, dyeAtV, 0, 0f, 0f);
+                dye, dyedSurfaces, dyeAtU, dyeAtV, alsoDyedSurfaces, alsoAtU, alsoAtV);
         return out + model.depth() * scale / 2f;
     }
 
@@ -566,7 +588,7 @@ final class FurnishingBuilder {
             build.hungAt[WallHung.BOTTOM] = top - down * (top - bottom);
             int picture = collage.pictures()[k];
             Models.Model model = placeHung(piece, build.hungAt, build.geometry.raised, hungPlace);
-            standHung(piece, model, x, y, z, clear + k * SHEET_PROUD, Decor.held(picture), 1 << Models.PANE, 0f, 0f);
+            standHung(piece, model, x, y, z, clear + k * SHEET_PROUD, Decor.held(picture), 1 << Models.PANE, 0f, 0f, 0, 0f, 0f);
             float[] pane = Decor.pane(model);
             Decor.lay(pane[0], pane[1], pane[2], pane[3], (pane[1] - pane[0]) * hungPlace[SCALE], (pane[3] - pane[2]) * hungPlace[SCALE_UP], 0f,
                     Decor.wideForHigh(picture), build.hungShows);

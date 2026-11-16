@@ -10460,6 +10460,92 @@ def warning_sign():
 WARNING_PLATE_Y = -0.035
 
 
+def newspaper_pedestal():
+    """A newspaper vending box on a square post, the Knox Knews and Kentucky Herald kind: a flared foot, the post, and a
+    head with its top chamfered down to the front. The front of the head is a pane that shows the sprite's own painting of
+    it, the paper behind the window and its frame. Sizes are as street_decoration_01_81 paints them. The origin is the post's axis."""
+    model = Model("newspaper_pedestal", centred=False)
+    half, foot, post, low, front_top, top, chamfer = 0.26, 0.25, 0.12, 0.75, 1.30, 1.42, 0.12
+    stand = bmesh.new()
+    cuboid(stand, -foot, foot, -foot, foot, 0.0, 0.05)
+    prism(stand, (0.0, 0.0, 2 * foot, 2 * foot, 0.05), (0.0, 0.0, 2 * post + 0.02, 2 * post + 0.02, 0.11))
+    cuboid(stand, -post, post, -post, post, 0.11, low)
+    model.hard(stand, "paint", bevel=0.006, segments=1)
+    head = bmesh.new()
+    # Its side outline, as (y, z) going round, made along x and turned a quarter so it runs across the box.
+    outline_along_y(head, [(-half, low), (half, low), (half, top), (-half + chamfer, top), (-half, front_top)], -half, half)
+    bmesh.ops.rotate(head, cent=(0, 0, 0), matrix=Matrix.Rotation(math.radians(90), 3, "Z"), verts=head.verts)
+    model.hard(head, "paint", bevel=0.008, segments=2)
+    face = bmesh.new()
+    cuboid(face, -half + 0.006, half - 0.006, NEWSPAPER_PEDESTAL_PANE_Y, NEWSPAPER_PEDESTAL_PANE_Y + 0.004, low + 0.006, front_top - 0.004)
+    model.plain(face, "pane")
+    return model
+
+
+# Where the face of a pedestal newspaper box's front is, along the model's y. Outdoors.NEWSPAPER_PEDESTAL_PANE_Y is the same.
+NEWSPAPER_PEDESTAL_PANE_Y = -0.264
+
+
+def newspaper_box():
+    """A newspaper vending box standing on the ground, the National Dispatch and Louisville Sun Times kind: a cabinet under
+    a lid that overhangs it, with the coin box on top at the front and a pull beside it. The cabinet's front and the coin
+    box's are a pane that shows the sprite's own painting of them, the window, the paper's name under it and the coin
+    plate. Sizes are as street_decoration_01_85 paints them. The origin is the middle of the cabinet's foot."""
+    model = Model("newspaper_box", centred=False)
+    half, depth, high, lid, over = 0.375, 0.31, 1.10, 0.04, 0.025
+    body = bmesh.new()
+    cuboid(body, -half, half, -depth, depth, 0.0, high)
+    cuboid(body, -half - over, half + over, -depth - over, depth + over, high, high + lid)
+    cuboid(body, -0.11, 0.11, -depth, 0.05, high + lid, 1.50)
+    model.hard(body, "paint", bevel=0.006, segments=2)
+    pull = bmesh.new()
+    cuboid(pull, 0.16, 0.28, -0.1, 0.05, high + lid, high + lid + 0.07)
+    model.hard(pull, "metal", bevel=0.004, segments=1)
+    face = bmesh.new()
+    cuboid(face, -half + 0.006, half - 0.006, NEWSPAPER_BOX_PANE_Y, NEWSPAPER_BOX_PANE_Y + 0.004, 0.006, high - 0.004)
+    cuboid(face, -0.105, 0.105, NEWSPAPER_BOX_PANE_Y, NEWSPAPER_BOX_PANE_Y + 0.004, high + lid + 0.004, 1.495)
+    model.plain(face, "pane")
+    return model
+
+
+# Where the face of a newspaper box's front is, along the model's y. Outdoors.NEWSPAPER_BOX_PANE_Y is the same.
+NEWSPAPER_BOX_PANE_Y = -0.314
+
+
+def neon_open():
+    """A neon "OPEN" sign hung flat on a wall or in a window: the four letters bent in one tube, which glows as a lamp's
+    shade does, inside an oval of another, held off the wall on two stand-offs. It reads from -Y; its back is at +Y."""
+    model = Model("neon_open")
+    y, radius = -0.035, 0.011
+
+    def run(bm, points, closed=False):
+        points = [(x + 0.04, y, z) for x, z in points]
+        for start, end in zip(points, points[1:] + (points[:1] if closed else [])):
+            tube(bm, start, end, radius, segments=8)
+
+    def oval(cx, rx, rz, steps):
+        return [(cx + rx * math.cos(2 * math.pi * k / steps), rz * math.sin(2 * math.pi * k / steps)) for k in range(steps)]
+
+    letters = bmesh.new()
+    run(letters, oval(-0.25, 0.06, 0.1, 14), closed=True)
+    p = -0.15
+    run(letters, [(p, -0.1), (p, 0.1), (p + 0.06, 0.1), (p + 0.095, 0.075), (p + 0.095, 0.025), (p + 0.06, 0.0), (p, 0.0)])
+    e = -0.01
+    run(letters, [(e + 0.1, 0.1), (e, 0.1), (e, -0.1), (e + 0.1, -0.1)])
+    run(letters, [(e, 0.0), (e + 0.08, 0.0)])
+    n = 0.13
+    run(letters, [(n, -0.1), (n, 0.1), (n + 0.1, -0.1), (n + 0.1, 0.1)])
+    model.turned(letters, "shade", sharp=60.0)
+    ring = bmesh.new()
+    run(ring, oval(-0.04, 0.4, 0.18, 28), closed=True)
+    model.turned(ring, "plastic", sharp=60.0)
+    stays = bmesh.new()
+    for x in (-0.4, 0.4):
+        cuboid(stays, x - 0.006, x + 0.006, y, 0.0, -0.006, 0.006)
+    model.hard(stays, "metal", bevel=0.002, segments=1)
+    return model
+
+
 def burnt_post(name, half, high, broken, seed):
     """A fence's post the fire has been at: square timber, charred, its top split and broken off unevenly where broken is set.
     The origin is the post's axis."""
@@ -10488,9 +10574,9 @@ def pole(name, radius, high, cap):
 
 def street_clutter():
     """What stands along streets and lots: road barriers and barricades, work lights, petrol pumps, a cement mixer, sand
-    tipped on the ground, and an old headstone."""
+    tipped on the ground, an old headstone, newspaper vending boxes and a shop's neon sign."""
     return [jersey_barrier(), gravestone_battered(), road_barricade(), flood_light(), fuel_pump(), fuel_pump(checked=True), cement_mixer(),
-            sand_pile("sand_pile", 1.0, 0.59, 3), sand_pile("sand_pile_large", 1.05, 0.68, 5), warning_sign(),
+            sand_pile("sand_pile", 1.0, 0.59, 3), sand_pile("sand_pile_large", 1.05, 0.68, 5), warning_sign(), newspaper_pedestal(), newspaper_box(), neon_open(),
             burnt_post("burnt_picket_post", 0.04, 0.96, False, 1), burnt_post("burnt_rail_post", 0.055, 1.35, True, 2),
             burnt_post("burnt_tall_post", 0.08, 2.33, False, 3), pole("fence_pole", 0.022, 2.17, False), pole("fence_pole_capped", 0.022, 1.25, True),
             pole("fence_pole_wide", 0.05, 2.19, False)]

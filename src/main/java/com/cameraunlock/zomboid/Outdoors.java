@@ -464,6 +464,10 @@ final class Outdoors {
             if (blade != null) {
                 return blade;
             }
+            Piece news = newspaperBox(Sheets.place(name, STREET));
+            if (news != null) {
+                return news;
+            }
             // A chicken coop on four squares: the south-east one stands the whole coop, its middle at that square's north-west
             // corner, and the other three and the doors the game lays over the south two stand nothing.
             Piece coop = coop(name);
@@ -933,6 +937,48 @@ final class Outdoors {
         }
         float a = SIGN_POST_AT[2 * faces], b = SIGN_POST_AT[2 * faces + 1];
         return new Piece("warning_sign", faces).at(a, b).dye(1 << Models.PANE, a, b, SIGN_PLATE_HIGH).pictured(WARNING_PLATE_Y);
+    }
+
+    /** Where the face of each kind of newspaper box's front is along its model's y: NEWSPAPER_PEDESTAL_PANE_Y and NEWSPAPER_BOX_PANE_Y in furniture.py. */
+    static final float NEWSPAPER_PEDESTAL_PANE_Y = -0.264f, NEWSPAPER_BOX_PANE_Y = -0.314f;
+    /**
+     * Where on its square a newspaper box stands, for one that faces north, east, south and west: the axis of the post of
+     * one on a post, read off the foot its sprite paints, and the middle of the cabinet of one on the ground, read off the
+     * cabinet's corners.
+     */
+    private static final float[] NEWSPAPER_PEDESTAL_AT = {0.48f, 0.5f, 0.52f, 0.46f, 0.49f, 0.49f, 0.5f, 0.48f},
+            NEWSPAPER_BOX_AT = {0.525f, 0.49f, 0.54f, 0.51f, 0.515f, 0.53f, 0.55f, 0.53f};
+    /**
+     * Where a newspaper box's sprite paints the paint of its top, which no lettering is on: over the middle of the head of
+     * one on a post, and on the lid of one on the ground, over a back corner of one facing east and a front corner of one
+     * facing south, clear of the coin box; how far that is from its middle along x and y, and how high, in levels.
+     */
+    private static final float NEWSPAPER_HEAD_TOP = 0.58f, NEWSPAPER_LID_A = -0.3f, NEWSPAPER_LID_B = 0.25f, NEWSPAPER_LID_TOP = 0.465f;
+
+    /**
+     * A newspaper vending box, by its place on the street sheet, 80 to 95, or null: four of a kind for each paper, Knox
+     * Knews and the Kentucky Herald on a post (80 and 88), the National Dispatch and the Louisville Sun Times on the ground
+     * (84 and 92). The game gives them no facing: which way each faces was read off its picture, by its window. Those on a
+     * post face east, south, west and north in that order, those on the ground east, south, north and west. The front
+     * shows the sprite's own painting of it; one facing north or west is painted from its back, and shows the front of the
+     * one of its kind facing south or east.
+     */
+    private static Piece newspaperBox(int place) {
+        if (place < 80 || place > 95) {
+            return null;
+        }
+        int first = place & ~3, which = place - first;
+        boolean posted = first == 80 || first == 88;
+        int faces = posted ? new int[] {EAST, SOUTH, WEST, NORTH}[which] : new int[] {EAST, SOUTH, NORTH, WEST}[which];
+        float[] at = posted ? NEWSPAPER_PEDESTAL_AT : NEWSPAPER_BOX_AT;
+        float a = at[2 * faces], b = at[2 * faces + 1];
+        Piece box = new Piece(posted ? "newspaper_pedestal" : "newspaper_box", faces).at(a, b)
+                .pictured(posted ? NEWSPAPER_PEDESTAL_PANE_Y : NEWSPAPER_BOX_PANE_Y);
+        // The pane's colour is the sprite itself (FurnishingBuilder hands it the picture); where it is looked up says only that
+        // the sprite is painted there. The paint takes its colour from the same place.
+        float dyeA = posted ? a : a + NEWSPAPER_LID_A, dyeB = posted ? b : b + NEWSPAPER_LID_B, high = posted ? NEWSPAPER_HEAD_TOP : NEWSPAPER_LID_TOP;
+        box.dye(1 << Models.PANE, dyeA, dyeB, high).also(PAINT, high);
+        return faces == NORTH || faces == WEST ? box.paintedBy(STREET + (first + (faces == NORTH ? 1 : 0))) : box;
     }
 
     /**

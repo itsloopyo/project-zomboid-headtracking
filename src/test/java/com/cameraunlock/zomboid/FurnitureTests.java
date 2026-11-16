@@ -55,6 +55,33 @@ final class FurnitureTests {
         Checks.run("aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun", FurnitureTests::aBanksStandingDepositBoxesFaceTheWayTheirSpritesDoAndMeetInARun);
         Checks.run("aSmallTableAtTheHeightTheGameGivesItIsTheSideTable", FurnitureTests::aSmallTableAtTheHeightTheGameGivesItIsTheSideTable);
         Checks.run("anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront", FurnitureTests::anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront);
+        Checks.run("aNeonOpenSignHangsFlatOnTheWallBehindTheWayItFaces", FurnitureTests::aNeonOpenSignHangsFlatOnTheWallBehindTheWayItFaces);
+    }
+
+    private static void aNeonOpenSignHangsFlatOnTheWallBehindTheWayItFaces() {
+        // The tile file's rows: 42 and 46 are marked attachedN, 43 and 47 attachedW, whichever wall their sprites paint them on.
+        String row = "|CustomName|Sign|GroupName|Neon Open|HasLightOnSprite||IsHigh||IsMoveAble||LightRadius|4|MoveType|WallObject|lightswitch||attached";
+        String[][] signs = {{"42", "S", "N"}, {"43", "E", "W"}, {"46", "N", "N"}, {"47", "W", "W"}};
+        int[] walls = {WallHung.NORTH, WallHung.WEST, WallHung.SOUTH, WallHung.EAST}, turns = {Outdoors.SOUTH, Outdoors.EAST, Outdoors.NORTH, Outdoors.WEST};
+        for (int i = 0; i < signs.length; i++) {
+            String name = "lighting_outdoor_01_" + signs[i][0];
+            IsoSprite on = new IsoSprite(name, TileRows.sprite(name + "|Facing|" + signs[i][1] + row + signs[i][2] + "|").getProperties(), IsoObjectType.lightswitch, null);
+            Furniture sign = Furniture.known(on);
+            check(model(sign).equals("neon_open"), name + " is the neon sign: " + model(sign));
+            if (sign == null || sign.model == null) {
+                continue;
+            }
+            check(sign.wall == walls[i] && sign.turns == turns[i] && sign.ownSize, name + " hangs at its own size on the wall behind the way it faces: wall " + sign.wall);
+            boolean alongX = sign.wall == WallHung.NORTH || sign.wall == WallHung.SOUTH;
+            float onWall = sign.wall == WallHung.NORTH || sign.wall == WallHung.WEST ? 0f : 1f;
+            check(sign.dyedInPlace && sign.dyed == 1 << Models.SHADE && sign.alsoDyed == 1 << Models.PLASTIC
+                    && (alongX ? sign.dyeB == onWall && sign.alsoB == onWall : sign.dyeA == onWall && sign.alsoA == onWall),
+                    name + "'s letters and oval take their colours on the wall it is painted on");
+        }
+        Models.Model neon = Models.get("neon_open");
+        check(neon.depth() < 0.07f && neon.width() > 0.7f && neon.width() < 0.9f && neon.height() < 0.45f,
+                "flat to the wall and about as big as a shop's sign: " + neon.width() + " by " + neon.height() + ", " + neon.depth() + " deep");
+        check(neon.first[Models.SHADE + 1] > neon.first[Models.SHADE] && neon.first[Models.PLASTIC + 1] > neon.first[Models.PLASTIC], "its letters are a lamp's shade, its oval plastic");
     }
 
     private static void anArcadeCabinetFacingAwayIsPaintedByTheSpriteOfItsFront() {

@@ -96,6 +96,8 @@ final class Furniture {
     boolean stretched;
     /** See overEnds. */
     boolean overEnds;
+    /** For what hangs on a wall, whether it takes its colours where dye and alsoAt say and not in the middle of what its sprite paints. */
+    boolean dyedInPlace;
     /** See alongWall: how far along its wall its middle is painted, or -1 where its sprite's outline says. */
     float alongWall = -1f;
     /** The picture of the mod's own that its frame holds in place of the sprite's painting, or Decor.NONE. */
@@ -515,6 +517,18 @@ final class Furniture {
             // painted it is a bowl with nothing holding it up. It faces away from its wall.
             if (called.equals("Wall Lamp") && group.endsWith("Half Sphere") && grid == null) {
                 return new Furniture(sprite, "wall_bowl", faces).hang(WallHung.behind(facing), false).ownSize();
+            }
+            // A neon Open sign is the game's lettering bent in tube, hung flat on the wall behind the way it faces: the game
+            // paints it turned a little off its wall, which drawn in the wall's plane slews its letters. Its letters take the
+            // colour of the sprite's red tube and its oval the blue, where each is painted, not in the middle of the sign.
+            int neon = Sheets.place(name, STREET_LAMPS);
+            int at = neon == 42 ? 0 : neon == 43 ? 1 : neon == 46 ? 2 : neon == 47 ? 3 : -1;
+            if (called.equals("Sign") && group.equals("Neon Open") && grid == null && at >= 0) {
+                float[] red = NEON_RED[at], blue = NEON_BLUE[at];
+                Furniture sign = new Furniture(sprite, "neon_open", faces).hang(WallHung.behind(facing), false).ownSize()
+                        .dye(1 << Models.SHADE, red[0], red[1], red[2]).alsoAt(1 << Models.PLASTIC, blue[0], blue[1], blue[2]);
+                sign.dyedInPlace = true;
+                return sign;
             }
             if (called.equals("Outdoor Lamp") && grid == null) {
                 String lamp = group.equals("Fancy") ? "wall_bowl" : group.equals("Modern") || group.equals("Oval") ? "bulkhead_light" : "wall_lantern";
@@ -990,6 +1004,13 @@ final class Furniture {
         table.centreY = alongX ? 0.5f : 1f;
         return table;
     }
+
+    /**
+     * Where the sprites of the neon Open signs, lighting_outdoor_01_42, 43, 46 and 47, paint the middle of their red tube and
+     * of their blue one, as (a, b, high in levels) on the wall each is painted on: read off the sprites.
+     */
+    private static final float[][] NEON_RED = {{0.453f, 0f, 0.591f}, {0f, 0.234f, 0.633f}, {0.328f, 1f, 0.826f}, {1f, 0.594f, 0.828f}},
+            NEON_BLUE = {{0.609f, 0f, 0.487f}, {0f, 0.406f, 0.531f}, {0.5f, 1f, 0.729f}, {1f, 0.75f, 0.688f}};
 
     /** The sheet the game's street lamps are on. They carry no name: which lamp a sprite is, is its place on the sheet. */
     static final String STREET_LAMPS = "lighting_outdoor_01_";
