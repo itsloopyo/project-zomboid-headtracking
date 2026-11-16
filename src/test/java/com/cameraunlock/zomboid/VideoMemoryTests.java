@@ -83,7 +83,13 @@ final class VideoMemoryTests {
             check(last.renderScale() <= Quality.LOW_PICTURE.renderScale() && last.viewDistance() <= Quality.LOW_PICTURE.viewDistance(),
                     "the last step draws no more than Low");
         }
-        check(VideoMemory.fit(Quality.LOW_PICTURE, 3).equals(Quality.LOW_PICTURE), "Low is cheaper than step 3 asks and is drawn as it is");
+        Quality.Picture low = Quality.LOW_PICTURE;
+        Quality.Picture lowFlat = new Quality.Picture(low.stockLook(), low.treeQuality(), low.grassDensity(), low.grassDistance(), low.renderScale(),
+                low.sharpShadows(), low.viewDistance(), low.drawDistance(), low.farTreeDistance(), low.rainOnGlass(), low.shadingAndLight(), low.reflections(),
+                low.fullSizeTextures(), low.surfaceDepth(), low.wholeFigureShadows(), low.frameBlending(), low.lightDistance(), low.reflectionScale(), false,
+                low.antialiasing(), low.upscaling());
+        check(low.corpseModels() && VideoMemory.fit(low, 3).equals(lowFlat),
+                "Low is cheaper than step 3 asks and is drawn as it is, but for corpses as the game's flat pictures");
     }
 
     private static void noStepDrawsMoreThanTheOneBefore() {

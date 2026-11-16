@@ -63,7 +63,8 @@ final class VideoMemory {
      * The most a step lets each mode draw. Each is the one before with less: the shadow maps 2048
      * across where they were 4096 and no frame blending, then the mod's pictures at half size, then
      * no more than Medium draws, and without its frame blending (but for the far trees, which Low
-     * draws further than Medium), then no more than Low, which draws none of the mod's own content.
+     * draws further than Medium), then no more than Low, which draws none of the mod's own content. The last two
+     * also draw corpses as the game's flat pictures, though every mode draws them as models.
      * Step 0 draws every mode as it is, a Custom dearer than High too.
      */
     private static final Quality.Picture[] CEILINGS;
@@ -82,8 +83,12 @@ final class VideoMemory {
                 medium.sharpShadows(), medium.viewDistance(), medium.drawDistance(),
                 Math.max(medium.farTreeDistance(), Quality.LOW_PICTURE.farTreeDistance()), medium.rainOnGlass(), medium.shadingAndLight(),
                 medium.reflections(), medium.fullSizeTextures(), medium.surfaceDepth(), medium.wholeFigureShadows(), false, medium.lightDistance(),
-                medium.reflectionScale(), medium.corpseModels(), medium.antialiasing(), medium.upscaling());
-        CEILINGS = new Quality.Picture[] {high, coarse, small, mediumUnblended, Quality.LOW_PICTURE};
+                medium.reflectionScale(), false, medium.antialiasing(), medium.upscaling());
+        Quality.Picture low = Quality.LOW_PICTURE;
+        Quality.Picture lowFlat = new Quality.Picture(low.stockLook(), low.treeQuality(), low.grassDensity(), low.grassDistance(), low.renderScale(), low.sharpShadows(),
+                low.viewDistance(), low.drawDistance(), low.farTreeDistance(), low.rainOnGlass(), low.shadingAndLight(), low.reflections(), low.fullSizeTextures(),
+                low.surfaceDepth(), low.wholeFigureShadows(), low.frameBlending(), low.lightDistance(), low.reflectionScale(), false, low.antialiasing(), low.upscaling());
+        CEILINGS = new Quality.Picture[] {high, coarse, small, mediumUnblended, lowFlat};
     }
 
     private static final String[] GIVEN_UP = {
@@ -91,8 +96,8 @@ final class VideoMemory {
         "shadow maps 2048 across, no frame blending",
         "shadow maps 2048 across, no frame blending, the mod's pictures at half size",
         "no more than Medium draws, and no frame blending: shadow maps 2048 across, the mod's pictures at half size, 0.8 of the pixels, glass reflections at half that, the mod's trees near only, "
-            + "less grass, sight 60 tiles, no surface depth",
-        "no more than Low draws: the game's own look, none of the mod's own content, 0.62 of the pixels, sight 48 tiles",
+            + "less grass, sight 60 tiles, no surface depth, corpses as the game's flat pictures",
+        "no more than Low draws: the game's own look, none of the mod's own content, 0.62 of the pixels, sight 48 tiles, corpses as the game's flat pictures",
     };
 
     /** The skins' caps by step, in MB: what FineSkins composes, what it reads from the jar, what it tailors. */
