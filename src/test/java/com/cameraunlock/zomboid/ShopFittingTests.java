@@ -29,6 +29,48 @@ final class ShopFittingTests {
         Checks.run("magazineStandsAreTheStandWithMagazinesOnItsTiers", ShopFittingTests::magazineStandsAreTheStandWithMagazinesOnItsTiers);
         Checks.run("aMallTablesFourQuartersMeetAtItsMiddle", ShopFittingTests::aMallTablesFourQuartersMeetAtItsMiddle);
         Checks.run("aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck", ShopFittingTests::aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck);
+        Checks.run("lowShopShelvesStandWithTheirBacksToTheWallAndMeetTheNext", ShopFittingTests::lowShopShelvesStandWithTheirBacksToTheWallAndMeetTheNext);
+    }
+
+    private static void lowShopShelvesStandWithTheirBacksToTheWallAndMeetTheNext() {
+        String row = "|BlocksPlacement||CanBreak||CanScrap||ContainerCapacity|20|CustomName|Shelves|IsLow||IsMoveAble||ItemHeight|32|Material|Wood|"
+                + "PickUpLevel|1|PickUpTool|Hammer|PickUpWeight|75|PlaceTool|Hammer|container|shelves|solidtrans||GroupName|";
+        String hung = "|BlocksPlacement||CanBreak||CanScrap||CustomName|Shelves|IsLow||IsMoveAble||ItemHeight|34|Material|Wood|MoveType|WallObject|"
+                + "PickUpLevel|1|PickUpTool|Hammer|PickUpWeight|50|PlaceTool|Hammer|container|shelves|GroupName|";
+        Object[][] cases = {
+            {"location_shop_generic_01_2" + row + "Beige Magazine Shop|Facing|S", "shop_low_shelves", 2, null},
+            {"location_shop_generic_01_3" + row + "Beige Magazine Shop|Facing|E", "shop_low_shelves", 1, null},
+            {"location_shop_generic_01_62" + row + "Wooden Shop|MoveType|WallObject|Facing|S", "shop_low_shelves", 2, null},
+            {"location_shop_generic_01_119" + row + "Wooden Shop|MoveType|WallObject|Facing|W", "shop_low_shelves", 3, "location_shop_generic_01_63"},
+            {"location_shop_zippee_01_5" + hung + "Zippee Low Wall|Facing|E", "zippee_low_shelves", 1, null},
+            {"location_shop_zippee_01_62" + hung + "Zippee Low Wall|Facing|N", "zippee_low_shelves", 0, "location_shop_zippee_01_4"}};
+        for (Object[] one : cases) {
+            Furniture shelves = Furniture.known(TileRows.sprite((String) one[0]));
+            String name = ((String) one[0]).substring(0, ((String) one[0]).indexOf('|'));
+            check(model(shelves).equals(one[1]) && shelves.turns == (int) one[2] && shelves.stocked, name + " is " + one[1] + " turned " + one[2] + ": " + model(shelves));
+            if (shelves == null || shelves.model == null) {
+                continue;
+            }
+            check(java.util.Objects.equals(shelves.paintedBy, one[3]), name + " takes its colours from " + one[3] + ": " + shelves.paintedBy);
+            int dyed = 1 << Models.PAINT | (((String) one[0]).contains("Wooden Shop") ? 1 << Models.WOOD : 0);
+            check(shelves.dyed == dyed && shelves.alsoDyed == 0, name + " takes its board's colour from the sprite, and its lips' too where they are the board's wood");
+            check(shelves.scale == Furniture.TILES_PER_METRE && Math.abs(shelves.model.width() - 1f) < 0.001f, name + " is a metre wide on its square, to meet the next");
+            // Its back is at the edge of its square the way it does not face, clear of the wall there.
+            float[] front = new float[2];
+            Models.turn(shelves.turns, 0f, -1f, front);
+            float backEdge = 0.5f + (front[0] * (shelves.centreX - 0.5f) + front[1] * (shelves.centreY - 0.5f)) - shelves.model.depth() / 2f;
+            check(backEdge > WorldScene.WALL_HALF && backEdge < WorldScene.WALL_HALF + 0.05f, name + " stands with its back to its wall: " + backEdge + " out");
+            // The sprites paint the board at the edge of the square behind the way it faces: north of one facing south.
+            int turns = (int) one[2];
+            float off = turns == 2 ? 0.5f - shelves.centreY : turns == 0 ? shelves.centreY - 0.5f : turns == 1 ? 0.5f - shelves.centreX : shelves.centreX - 0.5f;
+            check(off > 0.2f, name + " stands at the back of its square, " + off + " from its middle");
+        }
+        String comics = model(Furniture.known(TileRows.sprite("location_shop_generic_01_0" + row + "Comics Shop|Facing|E")));
+        check(!comics.equals("shop_low_shelves"), "a comics shop's shelves, a box with printed ends, are not the low shelves: " + comics);
+        Models.Model shelf = Models.get("shop_low_shelves"), ties = Models.get(ShopFittings.TIES.many());
+        float shirts = ShopFittings.TIES_FOOT + ties.height();
+        check(shirts > 0.8f && shirts < 1.0f && shelf.height() > 1f, "the shirts stand in piles on the shelf, whose top is 0.75: their top at " + shirts);
+        check(ShopFittings.TIES_FOOT > 0.15f, "and the ties hang clear of the deck: hem at " + ShopFittings.TIES_FOOT);
     }
 
     private static void aGrocersDisplayCrateIsTheCrateWithItsProduceOnItsDeck() {
@@ -234,7 +276,7 @@ final class ShopFittingTests {
     private static void whatAShelfHoldsStandsOnItsBoardsWithinIt() {
         // Two squares long, the goods on each square stand round that square's middle, half the model's length from its own.
         String[] shelves = {"bookcase", "low_shelves", "wall_shelf", "wall_shelves", "wire_wall_shelves", "metal_rack", "store_shelves", "wall_shelving",
-            "shop_wall_shelves", "zippee_wall_shelves", "wall_shelving_corner"};
+            "shop_wall_shelves", "zippee_wall_shelves", "wall_shelving_corner", "shop_low_shelves", "zippee_low_shelves"};
         for (String name : shelves) {
             Models.Model shelf = Models.get(name);
             Furniture piece = Furniture.single(null, name, 0);

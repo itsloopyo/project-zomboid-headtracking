@@ -2050,6 +2050,29 @@ def shop_wall_shelves(name, lip):
     return model
 
 
+# A shop's low shelves with their back to a wall, as the sprites paint them: the front of the shelf and of the deck, the
+# shelf's top and the deck's, and where the board up the back starts, in metres from the middle of the model's depth.
+LOW_SHELF_FRONT, LOW_SHELF_BOARD, LOW_SHELF_TOP, LOW_DECK_TOP = -0.175, 0.125, 0.75, 0.085
+
+
+def shop_low_shelves(name, lip):
+    """A square of a shop's low shelves, the wall at +Y and a metre wide so that each meets the next: a board up the back,
+    a shelf at the height of a counter and a deck on the floor, each with a lip along the front under its top."""
+    model = Model(name)
+    half, front, board = 0.5, LOW_SHELF_FRONT, LOW_SHELF_BOARD
+    body, lips = bmesh.new(), bmesh.new()
+    cuboid(body, -half, half, board, -front, 0.0, 1.02)
+    cuboid(body, -half, half, front, board, LOW_SHELF_TOP - 0.035, LOW_SHELF_TOP)
+    cuboid(lips, -half, half, front, front + 0.015, LOW_SHELF_TOP - 0.09, LOW_SHELF_TOP - 0.035)
+    cuboid(body, -half, half, front + 0.015, board, LOW_SHELF_TOP - 0.09, LOW_SHELF_TOP - 0.035)
+    cuboid(body, -half, half, front, board, LOW_DECK_TOP - 0.035, LOW_DECK_TOP)
+    cuboid(lips, -half, half, front, front + 0.015, 0.0, LOW_DECK_TOP - 0.035)
+    cuboid(body, -half, half, front + 0.015, board, 0.0, LOW_DECK_TOP - 0.035)
+    model.hard(body, "paint", bevel=0.004, segments=1)
+    model.hard(lips, lip, bevel=0.003, segments=1)
+    return model
+
+
 def hood_dryer():
     """A salon's hood hair dryer: a five legged foot on castors, a post, the motor at its top, and on an arm out to -Y the clear
     dome that goes over a sitting head, open below."""
@@ -7807,6 +7830,41 @@ def folded(name, seed, stacks):
     return model
 
 
+# Where the ties under a low shelf hang from, and how long the longest of them is: the goods' foot is that tie's hem.
+TIE_RAIL, TIE_LONGEST = LOW_SHELF_TOP - 0.11, 0.36
+
+
+def shelf_ties(name, seed, piles, ties):
+    """What a clothes shop's low shelves hold where the game paints them holding shirts and ties: piles of folded shirts on
+    the shelf, and ties hung from a rail under it. The first tie is the longest, so the goods' foot is always its hem."""
+    model = Model(name, centred=False)
+    part, finish = parts(model)
+    pick = random.Random(seed)
+    for x in pick.sample([-0.3, 0.0, 0.3], piles):
+        colour = pick.choice(CLOTHES)
+        pile = LOW_SHELF_TOP
+        for n in range(pick.randint(3, 5)):
+            thick = pick.uniform(0.028, 0.04)
+            lean = pick.uniform(-0.01, 0.01)
+            cuboid(part(colour if pick.random() < 0.6 else pick.choice(CLOTHES)), x - 0.13 + lean, x + 0.13 + lean, LOW_SHELF_FRONT + 0.02,
+                   LOW_SHELF_FRONT + 0.27, pile, pile + thick - 0.002)
+            pile += thick
+    rail_y = LOW_SHELF_FRONT + 0.07
+    cuboid(part("metal"), -0.44, 0.44, rail_y - 0.005, rail_y + 0.005, TIE_RAIL - 0.005, TIE_RAIL + 0.005)
+    for x in (-0.42, 0.42):
+        cuboid(part("metal"), x - 0.005, x + 0.005, rail_y - 0.005, rail_y + 0.005, TIE_RAIL, LOW_SHELF_TOP - 0.09)
+    step = 0.76 / ties
+    for n in range(ties):
+        x = -0.38 + (n + 0.5) * step + pick.uniform(-0.01, 0.01)
+        long = TIE_LONGEST if n == 0 else pick.uniform(0.26, TIE_LONGEST - 0.01)
+        colour = pick.choice(CLOTHES)
+        y = rail_y + pick.uniform(-0.004, 0.004)
+        cuboid(part(colour), x - 0.018, x + 0.018, y - 0.004, y + 0.004, TIE_RAIL - 0.45 * long, TIE_RAIL + 0.012)
+        cuboid(part(colour), x - 0.03, x + 0.03, y - 0.004, y + 0.004, TIE_RAIL - long, TIE_RAIL - 0.45 * long)
+    finish(bevel=0.002)
+    return model
+
+
 def garment(part, pick, x, y, top, across_y=True, longest=0.95, widest=0.46):
     """A garment on a hanger: the hook over the rail at top, the hanger's bar, and the garment hung from it with its
     shoulders sloping down from the hanger's neck and its hem a little wider or narrower than its shoulders. Its width
@@ -8407,6 +8465,8 @@ def shop_fittings():
             shelf_goods("shelf_goods_many", 41, 0.95, 3), shelf_goods("shelf_goods_few", 42, 0.45, 1),
             hook_goods("hook_goods_many", 43, 5), hook_goods("hook_goods_few", 44, 2),
             folded("folded_many", 45, 3), folded("folded_few", 46, 1),
+            shop_low_shelves("shop_low_shelves", "wood"), shop_low_shelves("zippee_low_shelves", "vinyl"),
+            shelf_ties("shelf_ties_many", 59, 3, 9), shelf_ties("shelf_ties_few", 60, 2, 3),
             clothes_rail(), clothes_rack(), clothes_stand(), open_wardrobe(),
             rail_garments("rail_garments_many", 47, (0.0,), 0.86, 11), rail_garments("rail_garments_few", 48, (0.0,), 0.86, 4),
             rail_garments("rack_garments_many", 49, (-RACK_RAILS / 2, RACK_RAILS / 2), 0.86, 10, widest=0.38),

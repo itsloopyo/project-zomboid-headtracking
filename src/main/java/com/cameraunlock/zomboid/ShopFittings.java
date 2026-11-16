@@ -55,6 +55,11 @@ final class ShopFittings {
             STAND_TOP = 1.42f, WARDROBE_RAIL_TOP = 1.27f;
     /** And the foot of the tickets on a magazine stand's lowest rail (MAGAZINE_TIERS[0][0] + 0.05 - TICKETS). */
     static final float MAGAZINE_FOOT = 0.23f;
+    /** And the hem of the longest tie under a low shelf (TIE_RAIL - TIE_LONGEST). */
+    static final float TIES_FOOT = 0.28f;
+
+    /** Where the sprite of a shop's low shelves gives its board's colour, over the shelf, in levels up. */
+    private static final float LOW_BOARD_DYE = 0.92f / ViewCamera.LEVEL_HEIGHT;
 
     /**
      * The glass counter's model in metres from the middle of its footprint, its back to +Y, as tools/models/furniture.py
@@ -76,6 +81,7 @@ final class ShopFittings {
             STAND = new Stock("stand_garments_many", "stand_garments_few", STAND_TOP, true),
             COATS = new Stock("coat_garments_many", "coat_garments_few", WARDROBE_RAIL_TOP, true),
             MAGAZINES = new Stock("magazines_many", "magazines_few", MAGAZINE_FOOT, false),
+            TIES = new Stock("shelf_ties_many", "shelf_ties_few", TIES_FOOT, false),
             BOTTLES = new Stock("bar_bottles_many", "bar_bottles_few", BOTTLES_FOOT, false);
 
     /**
@@ -176,6 +182,25 @@ final class ShopFittings {
             return stocked(new Furniture(sprite, single ? "magazine_stand" : "magazine_stand_red", turns).dye(1 << Models.PAINT, 0.5f, 0.5f, STAND_DYE)
                     .stand(0f, 0f, true));
         }
+        // A shop's low shelves with their back to a wall or to each other, a square to a sprite: a board up the back, a shelf
+        // and a deck. The game paints those facing north or west from behind, so they take their colours from the sprite of
+        // the same shelves facing south or east. The lips are a band two or three pixels high on the sprite, too thin to
+        // take a colour from: the beige shelves' are the model's own wood and Zippee's its own red, and the wooden shelves'
+        // are the brown of their board, as their sprites paint them.
+        if (called.equals("Shelves") && holds.equals("shelves") && single
+                && (group.equals("Beige Magazine Shop") || group.equals("Wooden Shop") || group.equals("Zippee Low Wall"))) {
+            boolean zippee = group.startsWith("Zippee");
+            Furniture shelves = new Furniture(sprite, zippee ? "zippee_low_shelves" : "shop_low_shelves", turns)
+                    .dyeAtBack(1 << Models.PAINT | (group.equals("Wooden Shop") ? 1 << Models.WOOD : 0), LOW_BOARD_DYE).meet(0f, 0f, true);
+            shelves.paintedBy = switch (sprite.getName()) {
+                case "location_shop_generic_01_118" -> "location_shop_generic_01_62";
+                case "location_shop_generic_01_119" -> "location_shop_generic_01_63";
+                case "location_shop_zippee_01_62" -> "location_shop_zippee_01_4";
+                case "location_shop_zippee_01_63" -> "location_shop_zippee_01_5";
+                default -> null;
+            };
+            return stocked(shelves);
+        }
         if (called.equals("Shelves") && group.equals("Generic Cooled") && holds.equals("fridge") && single) {
             return stocked(new Furniture(sprite, "open_chiller", turns).stand(0f, 0f, true));
         }
@@ -220,6 +245,7 @@ final class ShopFittings {
             case "clothes_stand" -> STAND;
             case "open_wardrobe" -> COATS;
             case "magazine_stand", "magazine_stand_red" -> MAGAZINES;
+            case "shop_low_shelves", "zippee_low_shelves" -> TIES;
             case "bar_back" -> BOTTLES;
             case "bookcase" -> BOOKCASE;
             case "low_shelves" -> LOW_SHELVES;
