@@ -1,0 +1,63 @@
+# Made by tools/models/props/office.py: see Props.java for what each line says.
+swap	office_01_0	filing_cabinet	office_filing_cabinet_open_2	0.00000 0.00000 0.00000
+prop	office_01_0	filing_cabinet	office_drawer_2_5	0.00000 0.02100 0.67667	host
+swap	office_01_1	filing_cabinet	office_filing_cabinet_open_0	0.00000 0.00000 0.00000
+prop	office_01_1	filing_cabinet	office_drawer_0_5	0.00000 0.02100 0.03000	host
+swap	office_01_2	filing_cabinet	office_filing_cabinet_open_1	0.00000 0.00000 0.00000
+prop	office_01_2	filing_cabinet	office_drawer_1_12	0.00000 0.02100 0.35333	host
+prop	office_01_2	filing_cabinet	office_folders_1_12	0.00000 0.02100 0.37133	plain
+swap	office_01_3	filing_cabinet	office_filing_cabinet_open_2	0.00000 0.00000 0.00000
+prop	office_01_3	filing_cabinet	office_drawer_2_5	0.00000 0.02100 0.67667	host
+swap	office_01_4	filing_cabinet	office_filing_cabinet_open_12	0.00000 0.00000 0.00000
+prop	office_01_4	filing_cabinet	office_drawer_2_5	0.00000 0.02100 0.67667	host
+prop	office_01_4	filing_cabinet	office_drawer_1_10	0.00000 0.02100 0.35333	host
+prop	office_01_4	filing_cabinet	office_folders_1_10	0.00000 0.02100 0.37133	plain
+swap	office_01_5	filing_cabinet	office_filing_cabinet_open_0	0.00000 0.00000 0.00000
+prop	office_01_5	filing_cabinet	office_drawer_0_5	0.00000 0.02100 0.03000	host
+swap	office_01_6	filing_cabinet	office_filing_cabinet_open_1	0.00000 0.00000 0.00000
+prop	office_01_6	filing_cabinet	office_drawer_1_5	0.00000 0.02100 0.35333	host
+swap	office_01_7	filing_cabinet	office_filing_cabinet_open_02	0.00000 0.00000 0.00000
+prop	office_01_7	filing_cabinet	office_drawer_2_5	0.00000 0.02100 0.67667	host
+prop	office_01_7	filing_cabinet	office_drawer_0_12	0.00000 0.02100 0.03000	host
+prop	office_01_7	filing_cabinet	office_folders_0_12	0.00000 0.02100 0.04800	plain
+swap	office_01_8	filing_cabinet	office_filing_cabinet_open_12	0.00000 0.00000 0.00000
+prop	office_01_8	filing_cabinet	office_drawer_2_12	0.00000 0.02100 0.67667	host
+prop	office_01_8	filing_cabinet	office_drawer_1_3	0.00000 0.02100 0.35333	host
+swap	office_01_9	filing_cabinet	office_filing_cabinet_open_1	0.00000 0.00000 0.00000
+prop	office_01_9	filing_cabinet	office_drawer_1_12	0.00000 0.02100 0.35333	host
+swap	office_01_10	filing_cabinet	office_filing_cabinet_open_2	0.00000 0.00000 0.00000
+prop	office_01_10	filing_cabinet	office_drawer_2_3	0.00000 0.02100 0.67667	host
+swap	office_01_11	filing_cabinet	office_filing_cabinet_open_1	0.00000 0.00000 0.00000
+prop	office_01_11	filing_cabinet	office_drawer_1_10	0.00000 0.02100 0.35333	host
+swap	office_01_12	filing_cabinet	office_filing_cabinet_open_02	0.00000 0.00000 0.00000
+prop	office_01_12	filing_cabinet	office_drawer_2_10	0.00000 0.02100 0.67667	host
+prop	office_01_12	filing_cabinet	office_drawer_0_3	0.00000 0.02100 0.03000	host
+swap	office_01_13	filing_cabinet	office_filing_cabinet_open_1	0.00000 0.00000 0.00000
+prop	office_01_13	filing_cabinet	office_drawer_1_5	0.00000 0.02100 0.35333	host
+swap	office_01_14	filing_cabinet	office_filing_cabinet_open_0	0.00000 0.00000 0.00000
+prop	office_01_14	filing_cabinet	office_drawer_0_3	0.00000 0.02100 0.03000	host
+swap	office_01_15	filing_cabinet	office_filing_cabinet_open_12	0.00000 0.00000 0.00000
+prop	office_01_15	filing_cabinet	office_drawer_2_10	0.00000 0.02100 0.67667	host
+prop	office_01_15	filing_cabinet	office_drawer_1_3	0.00000 0.02100 0.35333	host
+swap	storage_01_24	locker	office_locker_open_l	0.00000 0.00000 0.00000
+prop	storage_01_24	locker	office_locker_door_l8	0.00000 0.01900 0.09500	host
+prop	storage_01_24	locker	office_carton_24_0	0.00000 0.01900 1.83000	over:64:0.17100,-0.05100,2.06900
+swap	storage_01_25	locker	office_locker_open_r	0.00000 0.00000 0.00000
+prop	storage_01_25	locker	office_locker_door_r8	0.00000 0.01900 0.09500	host
+prop	storage_01_25	locker	office_carton_25_0	0.00000 0.01900 1.83000	over:64:0.11400,0.08700,2.12200
+prop	storage_01_25	locker	office_carton_25_1	0.00000 0.01900 1.83000	over:64:-0.26600,0.06800,2.02200
+prop	storage_01_26	locker	office_carton_26_0	0.00000 0.01900 1.83000	over:64:0.32700,0.03200,2.07500
+prop	storage_01_26	locker	office_carton_26_1	0.00000 0.01900 1.83000	over:64:-0.15400,0.14400,2.12200
+prop	storage_01_27	locker	office_carton_27_0	0.00000 0.01900 1.83000	over:64:0.19300,-0.04900,2.08900
+prop	storage_01_28	locker	office_carton_28_0	0.00000 0.01900 1.83000	over:64:-0.23300,-0.10600,2.10200
+prop	storage_01_28	locker	office_carton_28_1	0.00000 0.01900 1.83000	over:64:0.17100,-0.05100,2.00200
+prop	storage_01_29	locker	office_carton_29_0	0.00000 0.01900 1.83000	over:64:-0.27000,0.15400,2.04900
+prop	storage_01_29	locker	office_carton_29_1	0.00000 0.01900 1.83000	over:64:0.08100,0.05400,2.12200
+swap	storage_01_30	locker	office_locker_open_l	0.00000 0.00000 0.00000
+prop	storage_01_30	locker	office_locker_door_l8	0.00000 0.01900 0.09500	host
+swap	storage_01_31	locker	office_locker_open_r	0.00000 0.00000 0.00000
+prop	storage_01_31	locker	office_locker_door_r8	0.00000 0.01900 0.09500	host
+swap	storage_01_37	locker	office_locker_open_r	0.00000 0.00000 0.00000
+prop	storage_01_37	locker	office_locker_door_r7	0.00000 0.01900 0.09500	host
+swap	storage_01_38	locker	office_locker_open_r	0.00000 0.00000 0.00000
+prop	storage_01_38	locker	office_locker_door_r15	0.00000 0.01900 0.09500	host
