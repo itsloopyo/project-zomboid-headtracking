@@ -186,7 +186,8 @@ final class OptionsPage {
         call(section, "addDescription", OptionsLayout.keysNote());
         List<KeyControl> keys = new ArrayList<>();
         for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
-            KeyNames.Binding shown = KeyNames.shown(Tracking.keys(row.id()));
+            // FirstPersonKey as it is heard now: less Delete while Project Viewpoint runs.
+            KeyNames.Binding shown = KeyNames.shown(row.id().equals("FirstPersonKey") ? Tracking.firstPersonKeys() : Tracking.keys(row.id()));
             KahluaTable table = (KahluaTable) call(section, "addKeyBind", row.id(), row.label(), shown.code(), row.tip());
             // What the game's key dialog sets for Default, which addKeyBind takes from the key it was handed.
             table.rawset("defaultkey", (double) KeyNames.shown(Config.DEFAULT_KEYS.get(row.id())).code());
@@ -488,7 +489,9 @@ final class OptionsPage {
                 KeyNames.Binding chosen = new KeyNames.Binding((int) (double) (Double) element.rawget("keyCode"), Boolean.TRUE.equals(element.rawget("shift")),
                         Boolean.TRUE.equals(element.rawget("ctrl")), Boolean.TRUE.equals(element.rawget("alt")));
                 if (!chosen.equals(key.shown)) {
-                    String keys = KeyNames.text(chosen);
+                    // The page holds one key a row, so Default puts back the row's whole list, Delete, ScrollLock, Ctrl+Shift+B for FirstPersonKey.
+                    String defaults = Config.DEFAULT_KEYS.get(key.row.id());
+                    String keys = chosen.equals(KeyNames.shown(defaults)) ? defaults : KeyNames.text(chosen);
                     Tracking.applyKeys(key.row.id(), keys);
                     key.shown = chosen;
                     call((KahluaTable) element.rawget("btn"), "setTooltip", OptionsLayout.keyTip(key.row, keys));

@@ -3272,9 +3272,18 @@ public final class Tests {
                         && KeyNames.shownWhole("Alt+Keypad5") && KeyNames.shownWhole(""),
                 "a list the game's control cannot show whole shows the first of it that it can, and is said not to be shown whole");
         check(KeyNames.shown("Ctrl+Shift+G").equals(new KeyNames.Binding(0, false, false, false)), "and one with no key the control can show shows none");
-        for (String defaults : Config.DEFAULT_KEYS.values()) {
-            check(KeyNames.shownWhole(defaults), "the keys a row comes with, " + defaults + ", show whole on the options screen");
+        for (Map.Entry<String, String> defaults : Config.DEFAULT_KEYS.entrySet()) {
+            if (!defaults.getKey().equals("FirstPersonKey")) {
+                check(KeyNames.shownWhole(defaults.getValue()), "the keys a row comes with, " + defaults.getValue() + ", show whole on the options screen");
+            }
         }
+        // FirstPersonKey comes with three keys by owner ruling, more than the game's control shows.
+        String firstPerson = Config.DEFAULT_KEYS.get("FirstPersonKey");
+        int delete = 211;
+        check(KeyNames.shown(firstPerson).equals(new KeyNames.Binding(delete, false, false, false))
+                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson).contains("CameraUnlock.ini holds Delete or Scroll Lock or Ctrl+Shift+B"),
+                "the first person key's three show as Delete, with its tip naming all three: "
+                        + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson));
         for (OptionsLayout.KeyRow row : OptionsLayout.KEY_ROWS) {
             check(Config.DEFAULT_KEYS.containsKey(row.id()), row.id() + " on the options screen is a key list row with keys it comes with");
         }

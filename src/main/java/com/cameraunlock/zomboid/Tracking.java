@@ -40,11 +40,9 @@ final class Tracking {
     static final int[] AIM_MODES = {CameraUnlock.AIM_SIGHTS_LOCKED, CameraUnlock.AIM_FREE_LOOK_MARKER, CameraUnlock.AIM_STOCK_SIGHTS};
 
     private static final long WATCH_MILLISECONDS = 1000;
-    /** Every bit of the presses of the rows whose keys Project Viewpoint takes, and of the rows that stand in for them while it runs. */
-    private static final int VIEWPOINT_TAKES_BITS = bits(Config.FIRST_PERSON_TAPS, Config.FIRST_PERSON_ALL)
-            | bits(Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL),
-            BESIDE_VIEWPOINT_BITS = bits(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS, Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL)
-                    | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL;
+    /** Every bit of the presses of the graphics mode key, which Project Viewpoint takes, and of the row that stands in for it while it runs. */
+    private static final int VIEWPOINT_TAKES_BITS = bits(Config.CYCLE_QUALITY_TAPS, Config.CYCLE_QUALITY_ALL),
+            BESIDE_VIEWPOINT_BITS = Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL;
     /** Set once Project Viewpoint has started: see viewpointStarted. */
     private static volatile boolean viewpoint;
 
@@ -1076,43 +1074,52 @@ final class Tracking {
         bits.updateAndGet(was -> on ? was | 1 << player : was & ~(1 << player));
     }
 
-    /** The keys that switch first person now, as CameraUnlock.ini names them: FirstPersonKeyBesideViewpoint's while Project Viewpoint runs. */
+    /** The key Project Viewpoint opens its settings window on, which no key list listens for while it runs. */
+    static final String VIEWPOINT_KEY = "Delete";
+
+    /** The keys that switch first person now, as CameraUnlock.ini names them, less Delete while Project Viewpoint runs. */
     static String firstPersonKeys() {
-        return viewpoint ? config.firstPersonKeysBesideViewpoint() : config.firstPersonKeys();
+        String keys = config.firstPersonKeys();
+        return viewpoint ? withoutKey(keys, VIEWPOINT_KEY) : keys;
+    }
+
+    /** A key list less every entry whose key is `key`, with any modifiers, as core leaves them out. */
+    static String withoutKey(String keys, String key) {
+        StringBuilder kept = new StringBuilder();
+        for (String entry : keys.split(", ")) {
+            if (entry.isEmpty() || entry.substring(entry.lastIndexOf('+') + 1).equalsIgnoreCase(key)) {
+                continue;
+            }
+            kept.append(kept.isEmpty() ? "" : ", ").append(entry);
+        }
+        return kept.toString();
     }
 
     /**
      * Project Viewpoint, another mod, has started in this process, and opens its settings window on
-     * Delete, FirstPersonKey's default, and takes a screenshot on F9, CycleQualityKey's: from now on
-     * the keys of FirstPersonKeyBesideViewpoint and CycleQualityKeyBesideViewpoint stand in for
-     * theirs. A mod's jar stays loaded to the end of the process.
+     * Delete and takes a screenshot on F9, CycleQualityKey's: from now on no key list listens for
+     * Delete, so FirstPersonKey switches the view on its other keys, and the keys of
+     * CycleQualityKeyBesideViewpoint stand in for CycleQualityKey's. A mod's jar stays loaded to the
+     * end of the process.
      */
     static void viewpointStarted() {
         if (!viewpoint) {
+            Core.library().hotkeysLeaveOut(VIEWPOINT_KEY);
             viewpoint = true;
-            Log.info("Project Viewpoint is running: first person and the graphics mode switch on the keys of FirstPersonKeyBesideViewpoint"
-                    + " and CycleQualityKeyBesideViewpoint in place of FirstPersonKey's and CycleQualityKey's");
+            Log.info("Project Viewpoint is running: no hotkey listens for Delete, which opens its settings, and the graphics mode"
+                    + " switches on the keys of CycleQualityKeyBesideViewpoint in place of CycleQualityKey's");
         }
     }
 
     /**
-     * The presses with the first person and graphics mode keys' bits from the rows that switch
-     * them now: FirstPersonKeyBesideViewpoint's and CycleQualityKeyBesideViewpoint's while Project
-     * Viewpoint runs.
+     * The presses with the graphics mode key's bits from the row that switches it now:
+     * CycleQualityKeyBesideViewpoint's while Project Viewpoint runs.
      */
     static int keysNow(int pressed) {
         if (!viewpoint) {
             return pressed & ~BESIDE_VIEWPOINT_BITS;
         }
         int now = pressed & ~(VIEWPOINT_TAKES_BITS | BESIDE_VIEWPOINT_BITS);
-        for (int taps = 0; taps < Config.FIRST_PERSON_TAPS.length; taps++) {
-            if ((pressed & Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[taps]) != 0) {
-                now |= Config.FIRST_PERSON_TAPS[taps];
-            }
-        }
-        if ((pressed & Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) != 0) {
-            now |= Config.FIRST_PERSON_ALL;
-        }
         if ((pressed & Config.CYCLE_QUALITY_BESIDE_VIEWPOINT) != 0) {
             now |= Config.CYCLE_QUALITY;
         }

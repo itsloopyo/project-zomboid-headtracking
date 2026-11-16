@@ -110,6 +110,7 @@ public final class CoreTests {
         Checks.run("freeLookWithNoMarkerIsReadAsFreeLookWithOne", CoreTests::freeLookWithNoMarkerIsReadAsFreeLookWithOne);
         Checks.run("aFileFromBeforeTheKeysMovedStartsOnTheNavKeys", CoreTests::aFileFromBeforeTheKeysMovedStartsOnTheNavKeys);
         Checks.run("theKeysOfCoresRowsAreTheOnesTheFileNames", CoreTests::theKeysOfCoresRowsAreTheOnesTheFileNames);
+        Checks.run("aFileWithTheOldFirstPersonKeysTakesTheNewOnes", CoreTests::aFileWithTheOldFirstPersonKeysTakesTheNewOnes);
         Checks.run("eachPartOffAsTheGameStartsLeavesItsPatchesOut", CoreTests::eachPartOffAsTheGameStartsLeavesItsPatchesOut);
         Checks.run("rowsReadAgainWhileTheGameRuns", CoreTests::rowsReadAgainWhileTheGameRuns);
         Checks.run("aCollisionMarginInsideTheNearPlaneIsNotTaken", CoreTests::aCollisionMarginInsideTheNearPlaneIsNotTaken);
@@ -310,17 +311,14 @@ public final class CoreTests {
         for (int bit : Config.FIRST_PERSON_TAPS) {
             firstPersonTaps |= bit;
         }
-        for (int bit : Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS) {
-            besideViewpointTaps |= bit;
-        }
         check(Config.FIRST_PERSON_TAPS.length == View.COUNT && Config.FIRST_PERSON_TAPS[0] == Config.FIRST_PERSON
-                        && Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS.length == View.COUNT
                         && Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.CYCLE_QUALITY
                                 | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL
-                                | besideViewpointTaps | Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL
-                                | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) == 18,
-                "the six actions have a bit each, the first person key and the one beside Project Viewpoint one for each player tapped and"
-                        + " one held, and the graphics mode key beside Viewpoint one tapped and one held");
+                                | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) == 13,
+                "the six actions have a bit each, the first person key one for each player tapped and one held, and the graphics mode"
+                        + " key beside Project Viewpoint one tapped and one held");
+        check(holds("FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B") && !text().contains("FirstPersonKeyBesideViewpoint"),
+                "the first person key is Delete, Scroll Lock or Ctrl+Shift+B, with no row of its own beside Viewpoint");
     }
 
     private static float[] lean(float cleanYaw, float x, float y, float z) {
@@ -700,7 +698,7 @@ public final class CoreTests {
         check(Style.of(0) == styleWas && !Tracking.firstPersonRemembered(0) && SplitScreen.row() == SplitScreen.HORIZONTAL
                         && saved("Style=" + styleWas.label, "FirstPerson=false", "SplitScreen=Horizontal"),
                 "and set back by the keys, they are saved as they were");
-        check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete"), "and rows no action saves are as they were");
+        check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B"), "and rows no action saves are as they were");
     }
 
     /** The session is in stock sights here. */
@@ -782,6 +780,26 @@ public final class CoreTests {
         check(next.contains("Next tracking mode: Page Up |") && next.contains("Switch horizon-relative head turns: Page Down |")
                         && next.contains("Next aim mode: Insert |"),
                 "and the options page names the game's own nav keys for the three at default, not Defaults.ini's: " + next);
+        edit(saved);
+    }
+
+    /**
+     * Up to 0.5.0 FirstPersonKey held Delete alone, with Scroll Lock on FirstPersonKeyBesideViewpoint for while Project Viewpoint
+     * runs. Such a file starts on the keys the mod comes with now, and the old row is left alone. Keys a player chose are kept.
+     */
+    private static void aFileWithTheOldFirstPersonKeysTakesTheNewOnes() throws IOException, InterruptedException {
+        String saved = text();
+        String row = "FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B";
+        check(saved.contains("\r\n" + row + "\r\n"), "the file holds the keys the mod comes with");
+        edit(saved.replace(row, "FirstPersonKey=Delete\r\nFirstPersonKeyBesideViewpoint=ScrollLock"));
+        String next = nextStart("first-person-keys-from-before");
+        check(next.contains(Config.FILE_NAME + ": read") && next.contains("FirstPersonKeyBesideViewpoint is not a setting this mod reads, so it is ignored"),
+                "a file with the row beside Viewpoint is read, and that row is said to be left alone: " + next);
+        check(next.contains("FirstPersonKey \"Delete, ScrollLock, Ctrl+Shift+B\" in place of \"Delete\", the keys the mod used to come with saved")
+                        && holds(row), "and Delete alone is saved as Delete, Scroll Lock or Ctrl+Shift+B: " + next);
+        edit(saved.replace(row, "FirstPersonKey=F5"));
+        next = nextStart("first-person-keys-chosen");
+        check(!next.contains("the keys the mod used to come with") && holds("FirstPersonKey=F5"), "while a key the player chose is kept: " + next);
         edit(saved);
     }
 
@@ -1002,23 +1020,25 @@ public final class CoreTests {
     }
 
     private static void firstPersonAndGraphicsModeSwitchOnTheirOwnKeysBesideViewpoint() throws IOException {
-        int pressed = Config.FIRST_PERSON | Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[0] | Config.CYCLE_QUALITY
-                | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.AIM_MODE;
-        check(Tracking.keysNow(pressed) == (Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.AIM_MODE)
-                        && Tracking.firstPersonKeys().equals("Delete") && Tracking.cycleQualityKeys().equals("F9"),
-                "with no Project Viewpoint first person switches on Delete and the graphics mode on F9, and the rows beside Viewpoint do nothing");
+        int firstPerson = Config.FIRST_PERSON | Config.FIRST_PERSON_TAPS[1] | Config.FIRST_PERSON_ALL;
+        check(Tracking.keysNow(firstPerson | Config.CYCLE_QUALITY | Config.CYCLE_QUALITY_BESIDE_VIEWPOINT | Config.AIM_MODE)
+                        == (firstPerson | Config.CYCLE_QUALITY | Config.AIM_MODE)
+                        && Tracking.firstPersonKeys().equals("Delete, ScrollLock, Ctrl+Shift+B") && Tracking.cycleQualityKeys().equals("F9"),
+                "with no Project Viewpoint first person switches on Delete, Scroll Lock or Ctrl+Shift+B and the graphics mode on F9, and the"
+                        + " graphics row beside Viewpoint does nothing");
         Tracking.viewpointStarted();
-        check(Tracking.keysNow(Config.FIRST_PERSON | Config.CYCLE_QUALITY | Config.CYCLE_QUALITY_TAPS[1] | Config.AIM_MODE) == Config.AIM_MODE
-                        && Tracking.keysNow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_TAPS[1]) == Config.FIRST_PERSON_TAPS[1]
-                        && Tracking.keysNow(Config.FIRST_PERSON_BESIDE_VIEWPOINT_ALL) == Config.FIRST_PERSON_ALL
+        check(Tracking.keysNow(firstPerson | Config.CYCLE_QUALITY | Config.CYCLE_QUALITY_TAPS[1] | Config.AIM_MODE) == (firstPerson | Config.AIM_MODE)
                         && Tracking.keysNow(Config.CYCLE_QUALITY_BESIDE_VIEWPOINT) == Config.CYCLE_QUALITY
                         && Tracking.keysNow(Config.CYCLE_QUALITY_BESIDE_VIEWPOINT_ALL) == Config.CYCLE_QUALITY_ALL,
-                "once Viewpoint starts, FirstPersonKey's and CycleQualityKey's presses do nothing, and the rows beside Viewpoint stand in for them,"
-                        + " tapped and held");
-        check(Tracking.firstPersonKeys().equals("ScrollLock") && Tracking.cycleQualityKeys().equals("Home")
-                        && Files.readString(game.resolve(Log.FILE_NAME)).contains("Project Viewpoint is running"),
-                "and the hint and the options page name ScrollLock and Home, with the log saying why: " + Tracking.firstPersonKeys() + ", "
-                        + Tracking.cycleQualityKeys());
+                "once Viewpoint starts, the first person key still switches, tapped and held, CycleQualityKey's presses do nothing, and the"
+                        + " row beside Viewpoint stands in for it");
+        String log = Files.readString(game.resolve(Log.FILE_NAME));
+        check(Tracking.firstPersonKeys().equals("ScrollLock, Ctrl+Shift+B") && Tracking.cycleQualityKeys().equals("Home")
+                        && log.contains("Project Viewpoint is running") && log.contains("Delete left out of every key list"),
+                "and the hint and the options page name Scroll Lock, the chord and Home, with core leaving Delete out and the log saying why: "
+                        + Tracking.firstPersonKeys() + ", " + Tracking.cycleQualityKeys());
+        check(Tracking.withoutKey("Ctrl+Delete, F5, delete, Alt+F4", "Delete").equals("F5, Alt+F4") && Tracking.withoutKey("Delete", "Delete").isEmpty(),
+                "Delete is left out with any modifiers, as core leaves it out, and a list of Delete alone names no key");
     }
 
     /** Every set of patches by name in the order they go in, but those named. */

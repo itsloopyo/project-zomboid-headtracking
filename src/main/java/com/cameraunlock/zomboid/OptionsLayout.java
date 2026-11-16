@@ -318,7 +318,8 @@ final class OptionsLayout {
         new KeyRow("FirstPersonKey", "Switch view",
                 "Goes from the isometric view to first person, on to third person and back. Tap once for player 1, twice for player 2, "
                         + "three times for player 3, four times for player 4. Held, it puts every player into first person if any is in "
-                        + "the isometric view, or else every player back into it."),
+                        + "the isometric view, or else every player back into it. While Project Viewpoint, another mod, runs, Delete is "
+                        + "left out, as Viewpoint opens its settings window on Delete."),
         new KeyRow("CycleQualityKey", "Next graphics mode",
                 "Goes to the next graphics mode of the view you are in. Tapped and held as the first person key is."),
         new KeyRow("CycleStyleKey", "Next picture style", "Goes to the next picture style. Tapped and held as the first person key is."),
@@ -327,9 +328,6 @@ final class OptionsLayout {
         new KeyRow("CycleTrackingModeKey", "Next tracking mode", "Goes to the next tracking mode: rotation and position, rotation only, position only."),
         new KeyRow("YawModeKey", "Switch horizon-relative head turns", "Switches horizon-relative head turns on or off."),
         new KeyRow("TrueFreeLookKey", "Next aim mode", "Goes to the next aim mode: sights locked, free look with a marker, stock sights."),
-        new KeyRow("FirstPersonKeyBesideViewpoint", "Switch view beside Viewpoint",
-                "Used in place of the first person key while Project Viewpoint, another mod, runs, as Viewpoint opens its settings "
-                        + "window on Delete."),
         new KeyRow("CycleQualityKeyBesideViewpoint", "Next graphics mode beside Viewpoint",
                 "Used in place of the graphics mode key while Project Viewpoint, another mod, runs, as Viewpoint takes a screenshot on "
                         + "F9. Tap for player 1, or hold for every player."),

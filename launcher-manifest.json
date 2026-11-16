@@ -14,7 +14,8 @@
     "per_game": {
       "CycleTrackingModeKey": "PageUp",
       "YawModeKey": "PageDown",
-      "TrueFreeLookKey": "Insert"
+      "TrueFreeLookKey": "Insert",
+      "FirstPersonKey": "Delete, ScrollLock, Ctrl+Shift+B"
     }
   },
 

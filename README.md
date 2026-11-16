@@ -283,7 +283,7 @@ Centring belongs to your tracker, recenter there.
 
 | Key | Action |
 | --- | --- |
-| `Delete` | Go from isometric to first person, third person and back (`Scroll Lock` with Project Viewpoint) |
+| `Delete`, `Scroll Lock` or `Ctrl+Shift+B` | Go from isometric to first person, third person and back (`Delete` is skipped while Project Viewpoint runs) |
 | `Page Up` | Track head rotation and movement, rotation only, or movement only |
 | `Page Down` | Switch between horizon-relative and camera-relative head turns |
 | `Insert` | Change aiming mode |
@@ -541,10 +541,8 @@ TrueFreeLookKey=Insert
 ; Goes from the isometric view to first person, on to third person while ThirdPersonEnabled is on, and back to the
 ; isometric view. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4.
 ; Held, it puts every player into first person if any is in the isometric view, or else every player back into it.
-FirstPersonKey=Delete
-; Switches the view as FirstPersonKey does, in its place while Project Viewpoint, another mod, runs, as Viewpoint
-; opens its settings window on Delete. Tapped and held as FirstPersonKey is.
-FirstPersonKeyBesideViewpoint=ScrollLock
+; While Project Viewpoint, another mod, runs, Delete is left out, as Viewpoint opens its settings window on Delete.
+FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B
 ; Goes to the next graphics mode of the view a player is in: in first person Low, Medium, High, Custom
 ; (Quality), in the isometric view Low, Medium, High, Custom (IsometricQuality), and for players 2, 3 and 4 their
 ; rows of [Players]. Tap once for player 1, twice for player 2, three times for player 3, four times for player 4,
@@ -1063,7 +1061,7 @@ Picking an option in one of these lists changes the settings it covers on the pa
 
 If you run [Project Viewpoint](https://steamcommunity.com/sharedfiles/filedetails/?id=3809306528) alongside this mod, head tracking moves Viewpoint's camera too: yaw, pitch, roll and lean, with the lean held off walls as it is in first person. Head tracking has to be on for this: the Head tracking on tick box at the top of the mod's options page, or `EnableOnStartup`.
 
-Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod switches first person on `Scroll Lock` instead (`FirstPersonKeyBesideViewpoint`) and the graphics mode on `Home` (`CycleQualityKeyBesideViewpoint`), and the hint on screen names those keys. `Home` changes player 1's graphics mode when tapped and every player's when held.
+Viewpoint opens its settings window on `Delete` and takes a screenshot on `F9`, so while Viewpoint runs this mod leaves `Delete` out of its keys, with or without Shift, Ctrl or Alt, and switches first person on `Scroll Lock` or `Ctrl+Shift+B` (the rest of `FirstPersonKey`) and the graphics mode on `Home` (`CycleQualityKeyBesideViewpoint`), and the hint on screen names those keys. `Home` changes player 1's graphics mode when tapped and every player's when held.
 
 Viewpoint's view and this mod's first person take turns, since each turns the movement keys by its own camera: switching Viewpoint's view on switches first person off, and switching first person on from Viewpoint's first person mixes this mod's picture in over Viewpoint's at the eye, then switches Viewpoint's view off.
 
