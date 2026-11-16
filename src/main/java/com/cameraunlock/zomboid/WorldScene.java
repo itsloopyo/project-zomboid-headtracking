@@ -9096,6 +9096,52 @@ final class WorldScene {
             return false;
         }
 
+        private final ArrayList<IsoObject> reordered = new ArrayList<>();
+
+        /**
+         * The square's objects, with a measured window moved to just after the wall with an opening on its edge where the
+         * map lists the window first: the window is fitted to the opening the wall's sprite is cut with
+         * (OpeningBuilder.doorwayIn), which is known only once the wall is added. A shop's glazed front can stand in the
+         * doorway of a house's wall so. A window not measured yet, or every window with the mod's buildings off, keeps its
+         * place. Windows are taken from the last, so two before one wall keep their order.
+         */
+        private List<IsoObject> wallsBeforeTheirWindows(List<IsoObject> objects) {
+            if (!Own.buildings()) {
+                return objects;
+            }
+            List<IsoObject> order = objects;
+            for (int i = order.size() - 1; i >= 0; i--) {
+                if (!(order.get(i) instanceof IsoWindow window) || window.getSprite() == null) {
+                    continue;
+                }
+                boolean north = window.getNorth();
+                Texture shown = window.getSprite().getTextureForCurrentFrame(window.getDir());
+                if (!usable(shown) || !Windows.measured(shown, north)) {
+                    continue;
+                }
+                for (int j = i + 1; j < order.size(); j++) {
+                    IsoSprite sprite = order.get(j).getSprite();
+                    if (sprite == null || order.get(j) instanceof IsoWindow) {
+                        continue;
+                    }
+                    PropertyContainer flags = sprite.getProperties();
+                    boolean opens = north ? flags.has(IsoFlagType.DoorWallN) || flags.has(IsoFlagType.WindowN)
+                            : flags.has(IsoFlagType.DoorWallW) || flags.has(IsoFlagType.WindowW);
+                    if (!opens || !isWall(flags, sprite.getType())) {
+                        continue;
+                    }
+                    if (order == objects) {
+                        reordered.clear();
+                        reordered.addAll(objects);
+                        order = reordered;
+                    }
+                    order.add(j, order.remove(i));
+                    break;
+                }
+            }
+            return order;
+        }
+
         /** Whether the square being built holds nothing but trim and the grime laid over it. */
         private boolean onlyTrim() {
             List<IsoObject> objects = SquareObjects.of(here);
@@ -9187,8 +9233,9 @@ final class WorldScene {
             // The piece a drag would put down here is built after what stands here, as if it were put down: see DragAim.Ghost.
             IsoObject ghost = view.dragAim.ghost.on(x, y, z);
             int standing = objects.size() + (ghost == null ? 0 : 1);
+            List<IsoObject> standingOrder = wallsBeforeTheirWindows(objects);
             for (int i = 0; i < standing; i++) {
-                IsoObject object = i < objects.size() ? objects.get(i) : ghost;
+                IsoObject object = i < standingOrder.size() ? standingOrder.get(i) : ghost;
                 IsoSprite sprite = object.getSprite();
                 if (sprite == null) {
                     continue;
@@ -9300,6 +9347,7 @@ final class WorldScene {
                     }
                 }
             }
+            reordered.clear();
             contentsOf(RoomSight.OUTSIDE);
             geometry.raised = 0f;
             frame.material = 0f;

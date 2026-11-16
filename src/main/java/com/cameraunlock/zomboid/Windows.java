@@ -134,6 +134,12 @@ final class Windows {
         return !known.containsKey(new Edge(texture, north));
     }
 
+    /** Whether the sprite has been read as a window on the edge, for some frame: unread, or read as none, it is not. */
+    static boolean measured(Texture texture, boolean north) {
+        Shape shape = known.get(new Edge(texture, north));
+        return shape != null && shape != NONE;
+    }
+
     /**
      * Reads the sprite if it was asked for: it is the rectangle from (left, top) to before
      * (right, bottom) of a sheet width dots wide, held as bytes of red, green, blue and cover.

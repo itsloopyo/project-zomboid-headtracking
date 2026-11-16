@@ -1113,7 +1113,20 @@ final class OpeningBuilder {
         if (glazedOnly && shape.panes.length == 0) {
             return false;
         }
+        boolean cutToOpening = false;
         if (doorwayX == x && doorwayY == y && doorwayZ == z && doorwayNorth == north) {
+            // A glazed length of wall standing in another wall's opening, a shop's front in a house's doorway, is cut to the
+            // opening, as the game draws the wall over it, and built as joinery: its broad parts laid on the skin as wall lay
+            // in the plane of the other wall's skin, and the two fought.
+            if (glazedOnly && doorwayRevealed && doorwayStart >= 0f && shape.arch == null && overreaches(shape, doorwayStart, doorwayEnd, doorwayHead)) {
+                shape = cutTo(shape, doorwayStart, doorwayEnd, doorwayHead);
+                wall = null;
+                cutToOpening = true;
+                // None of it is inside the opening, and the wall round the opening is all there is to build.
+                if (shape.end <= shape.start || shape.head <= shape.foot) {
+                    return true;
+                }
+            }
             shape = fitted(shape, doorwayStart, doorwayEnd);
         }
         IsoGridSquare beyond = beyondEdge(north, x, y, z);
@@ -1148,7 +1161,10 @@ final class OpeningBuilder {
             if (shape.endWide > 0f) {
                 addMember(joinery, wall, x, y, z, inEnd, shape.end + FRAME_LAP, shape.foot - lap, shape.head + lap, out * deep, r, g, b);
             }
-            addMember(joinery, shape.headSolid ? wall : null, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
+            // A window cut to an opening under its own head has none: the glass runs up to the lintel (cutTo).
+            if (!cutToOpening || shape.headHigh > 0f) {
+                addMember(joinery, shape.headSolid ? wall : null, x, y, z, inStart, inEnd, shape.head - shape.headHigh, shape.head + lap, out * deep, r, g, b);
+            }
             addMember(joinery, shape.footSolid ? wall : null, x, y, z, inStart, inEnd, shape.foot - lap, shape.foot + shape.footHigh, out * deep, r, g, b);
             if (shape.arch != null) {
                 addArch(joinery, shape, out * deep, r, g, b);
@@ -1219,6 +1235,55 @@ final class OpeningBuilder {
         }
         joinery.day = glass.day = 0f;
         return true;
+    }
+
+    /**
+     * The part of the window inside the opening cut from cutStart to cutEnd along the edge and up to cutHead levels: a
+     * stile or the head the cut leaves behind the wall goes, one it cuts into is as wide as it still shows, and the panes
+     * and bars are cut back to the opening. A copy, the shape being every square's that shows its sprite.
+     */
+    static Windows.Shape cutTo(Windows.Shape shape, float cutStart, float cutEnd, float cutHead) {
+        Windows.Shape cut = shape.copy();
+        cut.start = Math.max(shape.start, cutStart);
+        cut.end = Math.min(shape.end, cutEnd);
+        cut.head = Math.min(shape.head, cutHead);
+        float across = Math.max(0f, cut.end - cut.start);
+        cut.startWide = Math.min(across, Math.max(0f, shape.start + shape.startWide - cut.start));
+        cut.endWide = Math.min(across - cut.startWide, Math.max(0f, cut.end - (shape.end - shape.endWide)));
+        cut.headHigh = Math.max(0f, cut.head - (shape.head - shape.headHigh));
+        cut.footHigh = Math.max(0f, Math.min(shape.footHigh, cut.head - cut.headHigh - shape.foot));
+        cut.bars = within(shape.bars, 4, cut);
+        cut.panes = within(shape.panes, 5, cut);
+        return cut;
+    }
+
+    /**
+     * Whether the window runs on past the sides or over the head of the opening cut from cutStart to cutEnd and up to
+     * cutHead levels by more than a frame laps over the wall round its opening: a length of wall glazed, not a window in it.
+     */
+    static boolean overreaches(Windows.Shape shape, float cutStart, float cutEnd, float cutHead) {
+        return shape.start < cutStart - OVERREACH || shape.end > cutEnd + OVERREACH || shape.head > cutHead + OVERREACH / ViewCamera.LEVEL_HEIGHT;
+    }
+
+    /** How far past its opening's sides or head a window's frame may run and still be a window in it, in tiles. */
+    static final float OVERREACH = 0.06f;
+
+    /** The rectangles of a list, each numbers long, along then up first, cut back to the shape's outline, those left with nothing dropped. */
+    private static float[] within(float[] list, int each, Windows.Shape shape) {
+        float[] kept = new float[list.length];
+        int count = 0;
+        for (int at = 0; at < list.length; at += each) {
+            float from = Math.max(list[at], shape.start), to = Math.min(list[at + 1], shape.end), head = Math.min(list[at + 3], shape.head);
+            if (to <= from || head <= list[at + 2]) {
+                continue;
+            }
+            System.arraycopy(list, at, kept, count, each);
+            kept[count] = from;
+            kept[count + 1] = to;
+            kept[count + 3] = head;
+            count += each;
+        }
+        return Arrays.copyOf(kept, count);
     }
 
     /**

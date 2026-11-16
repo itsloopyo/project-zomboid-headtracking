@@ -25,6 +25,7 @@ final class WindowTests {
         Checks.run("windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening", WindowTests::windowThatRunsOnIsCarriedToTheEndOfItsWallsOpening);
         Checks.run("stileIsWidenedToTheEndOfItsWallsOpening", WindowTests::stileIsWidenedToTheEndOfItsWallsOpening);
         Checks.run("windowFarShortOfItsOpeningOrWithNoneIsLeft", WindowTests::windowFarShortOfItsOpeningOrWithNoneIsLeft);
+        Checks.run("shopFrontInADoorwayIsWhatShowsThroughIt", WindowTests::shopFrontInADoorwayIsWhatShowsThroughIt);
         Checks.run("archIsMeasuredOverItsSquarePart", WindowTests::archIsMeasuredOverItsSquarePart);
         Checks.run("curtainDrawnAcrossIsOneLengthOfCloth", WindowTests::curtainDrawnAcrossIsOneLengthOfCloth);
         Checks.run("curtainPulledBackIsTwo", WindowTests::curtainPulledBackIsTwo);
@@ -451,6 +452,41 @@ final class WindowTests {
         Windows.Shape fit = OpeningBuilder.fitted(shape, 0.203125f, 1f);
         check(near(fit.end, 1f) && near(fit.endWide, 0.0625f + 0.078125f), "the stile reaches the opening's end, its inside where it was: " + fit.end + ", " + fit.endWide);
         check(near(fit.panes[1], 0.859375f) && near(fit.bars[1], 0.859375f), "the panes and the rail stop at the stile as before");
+    }
+
+    /**
+     * A shop's front a whole wall high stands in the doorway of a house's wall on its edge. Its outline is walls_commercial_02_54's
+     * as read in the game (a broad stile at its start, none at its end, a solid foot a quarter of a level high and a head a
+     * seventh); its three panes and two bars stand for the six and eight read.
+     */
+    private static void shopFrontInADoorwayIsWhatShowsThroughIt() {
+        Windows.Shape front = new Windows.Shape();
+        front.start = 0f;
+        front.startWide = 0.25f;
+        front.end = 1f;
+        front.endWide = 0f;
+        front.foot = 0f;
+        front.footHigh = 0.25f;
+        front.head = 1f;
+        front.headHigh = 0.14322917f;
+        front.bars = new float[] {0.25f, 1f, 0.55f, 0.58f, 0.6f, 0.63f, 0.25f, 0.85677083f};
+        front.panes = new float[] {0.25f, 0.6f, 0.58f, 0.85677083f, 1f, 0.63f, 1f, 0.58f, 0.85677083f, 1f, 0.25f, 0.6f, 0.25f, 0.55f, 1f};
+        check(OpeningBuilder.overreaches(front, 0.09375f, 0.84375f, 0.8f), "it runs on past the doorway it stands in");
+        check(!OpeningBuilder.overreaches(window(0.125f, 0.875f, 0.05f, 0.05f), 0.140625f, 0.859375f, 0.76f), "a window whose frame laps a dot over its opening does not");
+        Windows.Shape cut = OpeningBuilder.cutTo(front, 0.09375f, 0.84375f, 0.8f);
+        check(near(cut.start, 0.09375f) && near(cut.startWide, 0.15625f), "the stile starts at the doorway's side, its inside where it was: " + cut.start + ", " + cut.startWide);
+        check(near(cut.end, 0.84375f) && cut.endWide == 0f, "the glass runs on to the doorway's other side: " + cut.end + ", " + cut.endWide);
+        check(near(cut.head, 0.8f) && cut.headHigh == 0f, "the head, over the doorway, is behind the wall: " + cut.head + ", " + cut.headHigh);
+        check(near(cut.foot, 0f) && near(cut.footHigh, 0.25f), "the foot is the front's own");
+        check(cut.panes.length == 15 && near(cut.panes[3], 0.8f) && near(cut.panes[6], 0.84375f) && near(cut.panes[8], 0.8f), "every pane shows, cut to the doorway: " + Arrays.toString(cut.panes));
+        check(cut.bars.length == 8 && near(cut.bars[1], 0.84375f) && near(cut.bars[7], 0.8f), "and every bar: " + Arrays.toString(cut.bars));
+        check(OpeningBuilder.cutTo(front, 0.09375f, 0.84375f, 0.5f).panes.length == 5, "a pane wholly over the doorway's head goes");
+        check(near(OpeningBuilder.cutTo(front, 0.09375f, 0.84375f, 0.1f).footHigh, 0.1f), "a foot taller than the doorway is cut to its head");
+        Windows.Shape inside = OpeningBuilder.cutTo(front, 0.3f, 0.84375f, 0.8f);
+        check(inside.startWide == 0f && near(inside.panes[0], 0.3f) && near(inside.bars[0], 0.3f), "a doorway side past the stile leaves the stile behind the wall and cuts the panes and bars: " + Arrays.toString(inside.panes));
+        Windows.Shape narrow = OpeningBuilder.cutTo(front, 0f, 0.2f, 0.8f);
+        check(near(narrow.startWide, 0.2f) && narrow.endWide == 0f && narrow.panes.length == 0, "a doorway narrower than the stile is all stile: " + narrow.startWide);
+        check(front.end == 1f && front.panes[3] == 0.85677083f, "the measured shape, every square's that shows the sprite, is left as it was");
     }
 
     private static void windowFarShortOfItsOpeningOrWithNoneIsLeft() {
