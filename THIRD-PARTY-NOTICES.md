@@ -47,7 +47,7 @@ fan production for non-commercial purposes made under the Indie Stone Terms
 
 ## cameraunlock-core
 
-- **Version:** commit 72dcf7f813542e4d0baf2cd8562c49ba589f3d26
+- **Version:** commit 20271a5eb7c2a884788e10026e699ce8642f68a5
 - **License:** MIT
 - **Upstream:** https://github.com/itsloopyo/cameraunlock-core
 - **Usage:** its C++ (the OpenTrack receiver, the pose pipeline, the settings file reader and writer, the hotkey poller and the log) is compiled to WebAssembly and from there to Java classes, which run in the jar on the Endive classes below. Its Java classes, the binding to that code and the class the game's launcher starts the mod through, are compiled into the jar. `install.cmd` and `uninstall.cmd` run the installer script bodies it provides.
