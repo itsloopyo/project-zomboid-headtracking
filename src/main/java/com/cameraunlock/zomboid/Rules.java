@@ -76,7 +76,7 @@ final class Rules {
         return !Online.joined() && (on & CLIMB_HOLES) != 0;
     }
 
-    /** Whether a vehicle turned hard stays on its wheels: see TurnRoll. On a server its physics are as everyone else sees them. */
+    /** Whether a vehicle turned hard leans less than the game leans it: see TurnRoll. On a server its physics are as everyone else sees them. */
     static boolean uprightInTurns() {
         return !Online.joined() && (on & UPRIGHT_IN_TURNS) != 0;
     }

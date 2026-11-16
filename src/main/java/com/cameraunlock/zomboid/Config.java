@@ -523,9 +523,10 @@ final class Config {
                             + "climbs you through. false: holes are only to see and shoot through. On a server nothing is climbed through.",
                     writable | live, true),
             localBool("Rules", "VehiclesStayUprightInTurns",
-                    "true: offline, a vehicle turned hard, or slid round with the brakes on, leans only a little and keeps its four\n"
-                            + "wheels on the road. false: it leans as far as the game's physics has it. On a server the game's physics\n"
-                            + "applies.\n" + Part.LIVE_AND_NEXT_START,
+                    "true: offline, a vehicle turned hard, or slid round with the brakes on, leans less than the game's physics\n"
+                            + "leans it. false: it leans as the game's physics has it. On a server the game's physics applies.\n"
+                            + "Takes effect at once. With this and HillsMoveVehicles both off, the mod stops changing the game's own code for\n"
+                            + "this from the next start.",
                     writable | live, true),
         };
         describeParts("Rules");
