@@ -3234,8 +3234,13 @@ public final class Tests {
         check(!LinuxKeys.down(0x21) && !LinuxKeys.down(0x10) && !LinuxKeys.down(0x2C) && !LinuxKeys.down(300),
                 "a key is up until a reading says otherwise, and a code past 255 is never down");
         gameDown.add(pageUp);
+        gameDown.add(leftShift);
         check(!LinuxKeys.read(gameDown::contains, now), "the first reading after the keys were let go does not follow on");
-        check(LinuxKeys.down(0x21) && !LinuxKeys.down(0x10), "a key core asked about is down once the game reads it down");
+        check(LinuxKeys.down(0x21) && LinuxKeys.down(0x10) && LinuxKeys.down(0xA0) && !LinuxKeys.down(0xA1),
+                "a key core asked about is down once the game reads it down, and Shift is read before core first asks about it, so a"
+                        + " chord's first press has it");
+        gameDown.remove(leftShift);
+        LinuxKeys.read(gameDown::contains, now += frame);
         gameDown.add(leftShift);
         check(LinuxKeys.read(gameDown::contains, now += frame) && LinuxKeys.down(0x10) && LinuxKeys.down(0x21),
                 "the next frame's reading follows on, and Shift is down for the left Shift");

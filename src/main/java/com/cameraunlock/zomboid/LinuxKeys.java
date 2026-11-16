@@ -17,8 +17,13 @@ final class LinuxKeys {
     /** Core's kMaxHoldPollGapMs: a longer gap between readings could make a tap look like a hold. */
     static final long LONGEST_GAP_NANOS = TimeUnit.MILLISECONDS.toNanos(100);
 
-    /** The virtual keys core has asked about, a bit each. */
-    private static final AtomicLongArray asked = new AtomicLongArray(4);
+    /**
+     * The virtual keys core has asked about, a bit each. Shift, Ctrl and Alt, generic and by side,
+     * are read from the first reading on: core asks for them only as a chord's key goes down, and
+     * answered from a reading that left them out, the first press of a chord would be taken without them.
+     */
+    private static final AtomicLongArray asked = new AtomicLongArray(new long[] {1L << 0x10 | 1L << 0x11 | 1L << 0x12, 0,
+        0x3FL << (0xA0 - 128), 0});
     /** The last reading, a bit each, swapped whole so core never sees half of one. */
     private static volatile long[] down = new long[4];
     /** When the last reading was taken, or 0 where none has been since the keys were let go. Logic thread. */
