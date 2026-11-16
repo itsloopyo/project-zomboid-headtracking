@@ -129,6 +129,8 @@ public final class Tests {
         Checks.run("fieldOfViewEasesToTheAimedZoomAndBack", Tests::fieldOfViewEasesToTheAimedZoomAndBack);
         Checks.run("firstPersonKeysReplaceTheStockOnes", Tests::firstPersonKeysReplaceTheStockOnes);
         Checks.run("aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt", Tests::aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt);
+        Checks.run("onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName", Tests::onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName);
+        Checks.run("onLinuxTheHotkeysHearTheKeysTheGameRead", Tests::onLinuxTheHotkeysHearTheKeysTheGameRead);
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
@@ -3192,6 +3194,58 @@ public final class Tests {
         float[] eye = new float[3];
         ViewpointCamera.leanTheEye(eye);
         check(eye[0] == 0f && eye[1] == 0f && eye[2] == 0f, "nor the lean it last added at the eye");
+    }
+
+    /** LinuxKeys answers core by Windows' virtual-key code, which cameraunlock-core's keys.json gives for each name. */
+    private static void onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName() throws IOException {
+        Map<String, Integer> fromCore = new HashMap<>();
+        java.util.regex.Matcher entry = java.util.regex.Pattern.compile("\\{\"name\": \"(\\w+)\", \"vk\": \"0x([0-9A-F]{2})\"")
+                .matcher(Files.readString(Path.of("cameraunlock-core", "data", "keys.json")));
+        while (entry.find()) {
+            fromCore.put(entry.group(1), Integer.parseInt(entry.group(2), 16));
+        }
+        Map<String, Integer> ours = KeyNames.virtualKeys();
+        check(fromCore.size() > 90 && !ours.isEmpty(), "keys.json is read: " + fromCore.size() + " names with a code");
+        for (Map.Entry<String, Integer> name : ours.entrySet()) {
+            check(name.getValue().equals(fromCore.get(name.getKey())),
+                    name.getKey() + " is asked about as 0x" + Integer.toHexString(name.getValue()) + ", which keys.json gives as " + fromCore.get(name.getKey()));
+        }
+        int pageUp = 201, leftShift = 42, rightShift = 54, enter = 28, keypadEnter = 156, escape = 1;
+        check(Arrays.equals(KeyNames.codes(0x21), new int[] {pageUp}) && Arrays.equals(KeyNames.codes(0x10), new int[] {leftShift, rightShift})
+                        && Arrays.equals(KeyNames.codes(0xA0), new int[] {leftShift}) && Arrays.equals(KeyNames.codes(0x0D), new int[] {enter, keypadEnter})
+                        && Arrays.equals(KeyNames.codes(0x1B), new int[] {escape}),
+                "a key is the game's key of its name, Shift either Shift, and Enter either Enter, as Windows reports them");
+        int leftCtrl = 29, rightCtrl = 157, leftAlt = 56, rightAlt = 184;
+        check(Arrays.equals(KeyNames.codes(0x11), new int[] {leftCtrl, rightCtrl}) && Arrays.equals(KeyNames.codes(0x12), new int[] {leftAlt, rightAlt})
+                        && Arrays.equals(KeyNames.codes(0xA1), new int[] {rightShift}) && Arrays.equals(KeyNames.codes(0xA2), new int[] {leftCtrl})
+                        && Arrays.equals(KeyNames.codes(0xA3), new int[] {rightCtrl}) && Arrays.equals(KeyNames.codes(0xA4), new int[] {leftAlt})
+                        && Arrays.equals(KeyNames.codes(0xA5), new int[] {rightAlt}),
+                "Ctrl and Alt are either of the pair, and each side its own key");
+        check(KeyNames.codes(0xBA) == null && KeyNames.codes(0x87) == null && KeyNames.codes(0x2C) == null && KeyNames.codes(0x5D) == null,
+                "and a punctuation key, F24, Print and Menu, which the game does not read, are none");
+    }
+
+    /** LinuxKeys: core's key source on Linux, answered from the game's keys as the logic thread last read them. */
+    private static void onLinuxTheHotkeysHearTheKeysTheGameRead() {
+        int pageUp = 201, leftShift = 42;
+        java.util.Set<Integer> gameDown = new java.util.HashSet<>();
+        long now = 1_000_000_000L, frame = TimeUnit.MILLISECONDS.toNanos(16);
+        LinuxKeys.letGo();
+        check(!LinuxKeys.down(0x21) && !LinuxKeys.down(0x10) && !LinuxKeys.down(0x2C) && !LinuxKeys.down(300),
+                "a key is up until a reading says otherwise, and a code past 255 is never down");
+        gameDown.add(pageUp);
+        check(!LinuxKeys.read(gameDown::contains, now), "the first reading after the keys were let go does not follow on");
+        check(LinuxKeys.down(0x21) && !LinuxKeys.down(0x10), "a key core asked about is down once the game reads it down");
+        gameDown.add(leftShift);
+        check(LinuxKeys.read(gameDown::contains, now += frame) && LinuxKeys.down(0x10) && LinuxKeys.down(0x21),
+                "the next frame's reading follows on, and Shift is down for the left Shift");
+        gameDown.clear();
+        check(!LinuxKeys.read(gameDown::contains, now += LinuxKeys.LONGEST_GAP_NANOS + 1) && !LinuxKeys.down(0x21),
+                "a reading after a long frame does not follow on, so what core heard across it is dropped");
+        gameDown.add(pageUp);
+        LinuxKeys.read(gameDown::contains, now += frame);
+        LinuxKeys.letGo();
+        check(!LinuxKeys.down(0x21), "a save left lets every key go");
     }
 
     private static void aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt() {

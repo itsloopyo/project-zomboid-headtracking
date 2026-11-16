@@ -20,78 +20,127 @@ final class KeyNames {
 
     private static final Map<Integer, String> NAMES = new HashMap<>();
     private static final Map<String, Integer> CODES = new HashMap<>();
+    /** The game's codes of each Windows virtual-key code core may ask about, for LinuxKeys. */
+    private static final Map<Integer, int[]> BY_VIRTUAL_KEY = new HashMap<>();
 
     static {
         for (int digit = 1; digit <= 9; digit++) {
-            name(digit + 1, "Alpha" + digit);
+            name(digit + 1, "Alpha" + digit, 0x30 + digit);
         }
-        name(11, "Alpha0");
-        name(14, "Backspace");
-        name(15, "Tab");
+        name(11, "Alpha0", 0x30);
+        name(14, "Backspace", 0x08);
+        name(15, "Tab", 0x09);
         String rows = "QWERTYUIOP";
         for (int at = 0; at < rows.length(); at++) {
-            name(16 + at, rows.substring(at, at + 1));
+            name(16 + at, rows.substring(at, at + 1), rows.charAt(at));
         }
-        name(28, "Return");
+        name(28, "Return", 0x0D);
         String home = "ASDFGHJKL";
         for (int at = 0; at < home.length(); at++) {
-            name(30 + at, home.substring(at, at + 1));
+            name(30 + at, home.substring(at, at + 1), home.charAt(at));
         }
         String bottom = "ZXCVBNM";
         for (int at = 0; at < bottom.length(); at++) {
-            name(44 + at, bottom.substring(at, at + 1));
+            name(44 + at, bottom.substring(at, at + 1), bottom.charAt(at));
         }
-        name(55, "KeypadMultiply");
-        name(57, "Space");
-        name(58, "CapsLock");
+        name(55, "KeypadMultiply", 0x6A);
+        name(57, "Space", 0x20);
+        name(58, "CapsLock", 0x14);
         for (int f = 1; f <= 10; f++) {
-            name(58 + f, "F" + f);
+            name(58 + f, "F" + f, 0x6F + f);
         }
-        name(69, "Numlock");
-        name(70, "ScrollLock");
-        name(71, "Keypad7");
-        name(72, "Keypad8");
-        name(73, "Keypad9");
-        name(74, "KeypadMinus");
-        name(75, "Keypad4");
-        name(76, "Keypad5");
-        name(77, "Keypad6");
-        name(78, "KeypadPlus");
-        name(79, "Keypad1");
-        name(80, "Keypad2");
-        name(81, "Keypad3");
-        name(82, "Keypad0");
-        name(83, "KeypadPeriod");
-        name(87, "F11");
-        name(88, "F12");
+        name(69, "Numlock", 0x90);
+        name(70, "ScrollLock", 0x91);
+        name(71, "Keypad7", 0x67);
+        name(72, "Keypad8", 0x68);
+        name(73, "Keypad9", 0x69);
+        name(74, "KeypadMinus", 0x6D);
+        name(75, "Keypad4", 0x64);
+        name(76, "Keypad5", 0x65);
+        name(77, "Keypad6", 0x66);
+        name(78, "KeypadPlus", 0x6B);
+        name(79, "Keypad1", 0x61);
+        name(80, "Keypad2", 0x62);
+        name(81, "Keypad3", 0x63);
+        name(82, "Keypad0", 0x60);
+        name(83, "KeypadPeriod", 0x6E);
+        name(87, "F11", 0x7A);
+        name(88, "F12", 0x7B);
         for (int f = 13; f <= 18; f++) {
-            name(87 + f, "F" + f);
+            name(87 + f, "F" + f, 0x6F + f);
         }
-        name(113, "F19");
-        name(181, "KeypadDivide");
+        name(113, "F19", 0x82);
+        name(181, "KeypadDivide", 0x6F);
+        // The game reads neither Print nor Menu (its KeyCodes answers -1 for both), so neither has a code for LinuxKeys.
         name(183, "Print");
-        name(197, "Pause");
-        name(199, "Home");
-        name(200, "UpArrow");
-        name(201, "PageUp");
-        name(203, "LeftArrow");
-        name(205, "RightArrow");
-        name(207, "End");
-        name(208, "DownArrow");
-        name(209, "PageDown");
-        name(210, "Insert");
-        name(211, "Delete");
-        name(219, "LeftWindows");
-        name(220, "RightWindows");
+        name(197, "Pause", 0x13);
+        name(199, "Home", 0x24);
+        name(200, "UpArrow", 0x26);
+        name(201, "PageUp", 0x21);
+        name(203, "LeftArrow", 0x25);
+        name(205, "RightArrow", 0x27);
+        name(207, "End", 0x23);
+        name(208, "DownArrow", 0x28);
+        name(209, "PageDown", 0x22);
+        name(210, "Insert", 0x2D);
+        name(211, "Delete", 0x2E);
+        name(219, "LeftWindows", 0x5B);
+        name(220, "RightWindows", 0x5C);
         name(221, "Menu");
+        // Keys a row cannot name but a key list can, which core asks for by their codes: Esc, Enter
+        // on the keypad (Windows' VK_RETURN, as the other Enter), and Shift, Ctrl and Alt, of a
+        // chord as the pair and on their own as one side.
+        key(0x1B, 1);
+        key(0x0D, 156);
+        key(0x10, 42);
+        key(0x10, 54);
+        key(0x11, 29);
+        key(0x11, 157);
+        key(0x12, 56);
+        key(0x12, 184);
+        key(0xA0, 42);
+        key(0xA1, 54);
+        key(0xA2, 29);
+        key(0xA3, 157);
+        key(0xA4, 56);
+        key(0xA5, 184);
     }
 
     private KeyNames() {}
+
+    private static void name(int code, String name, int virtualKey) {
+        name(code, name);
+        key(virtualKey, code);
+    }
 
     private static void name(int code, String name) {
         if (NAMES.put(code, name) != null || CODES.put(name.toLowerCase(Locale.ROOT), code) != null) {
             throw new IllegalStateException("key " + code + " or " + name + " is named twice");
         }
+    }
+
+    private static void key(int virtualKey, int code) {
+        int[] before = BY_VIRTUAL_KEY.getOrDefault(virtualKey, new int[0]);
+        int[] codes = java.util.Arrays.copyOf(before, before.length + 1);
+        codes[before.length] = code;
+        BY_VIRTUAL_KEY.put(virtualKey, codes);
+    }
+
+    /** The game's codes of the key a Windows virtual-key code names, or null where the game has none that is the same key on every layout. */
+    static int[] codes(int virtualKey) {
+        return BY_VIRTUAL_KEY.get(virtualKey);
+    }
+
+    /** The Windows virtual-key code of a name a row can hold, for the test that holds this table to cameraunlock-core's keys.json. */
+    static Map<String, Integer> virtualKeys() {
+        Map<String, Integer> named = new HashMap<>();
+        for (Map.Entry<Integer, int[]> each : BY_VIRTUAL_KEY.entrySet()) {
+            for (int code : each.getValue()) {
+                String name = NAMES.get(code);
+                if (name != null) named.put(name, each.getKey());
+            }
+        }
+        return named;
     }
 
     /** Whether a row of [Hotkeys] can name the key of a game's code. */

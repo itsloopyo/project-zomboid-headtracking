@@ -150,6 +150,7 @@ final class Tracking {
         ports[0] = port;
         try {
             listen(port);
+            if (!Core.WINDOWS) core.keySource(LinuxKeys::down);
             core.hotkeysStart();
         } catch (RuntimeException failure) {
             // The mod stays out of the game, and its port is let go for whatever else listens on it.
@@ -712,6 +713,7 @@ final class Tracking {
     /** The keys pressed between now and the next frame drawn are dropped, not acted on. Logic thread. */
     static void dropTheNextPresses() {
         outOfSave = true;
+        if (!Core.WINDOWS) LinuxKeys.letGo();
     }
 
     /**
@@ -725,9 +727,12 @@ final class Tracking {
         if (first) {
             boolean enteringSave = outOfSave;
             int pressed = 0, told = cycleOwedGraphicsModes();
+            // Read before a drop too, so a key let go while the presses are dropped is let go there. After a long frame
+            // the keys core heard are dropped, since a tap across the gap would read as a hold.
+            boolean keysFollowOn = Core.WINDOWS || LinuxKeys.read();
             // The hotkeys are heard whatever the game is doing with the keyboard, so a key that goes into one of its text boxes, or
             // one pressed on the options screen to choose it for a key row, is not an action as well.
-            if (outOfSave || zombie.core.Core.getInstance().isDoingTextEntry() || OptionsPage.optionsShown()) {
+            if (outOfSave || !keysFollowOn || zombie.core.Core.getInstance().isDoingTextEntry() || OptionsPage.optionsShown()) {
                 outOfSave = false;
                 core.hotkeysDrop();
             } else {
@@ -872,6 +877,7 @@ final class Tracking {
     /** A save was left: what is pressed until a frame of the next is not acted on. */
     static void leftSave() {
         outOfSave = true;
+        if (!Core.WINDOWS) LinuxKeys.letGo();
         Quality.players(0);
         cycleOwedGraphicsModes();
     }

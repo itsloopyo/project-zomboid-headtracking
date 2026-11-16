@@ -23,6 +23,10 @@ public final class WindowPlacement {
 
     /** Called from Display.create, after the game has positioned the new window. */
     public static void centreNewWindow() {
+        if (!Core.WINDOWS) {
+            Log.info("window left where the game put it: cameraunlock-core centres it on Windows only");
+            return;
+        }
         if (Boolean.getBoolean(UNDECORATED_PROPERTY)) {
             Log.info("window left where the game put it: it is borderless");
             return;
@@ -32,6 +36,9 @@ public final class WindowPlacement {
 
     /** Called after the game changes the display mode or the borderless setting. */
     public static void centreAfterModeChange() {
+        if (!Core.WINDOWS) {
+            return;
+        }
         centre();
     }
 

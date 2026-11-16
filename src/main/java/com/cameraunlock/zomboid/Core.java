@@ -8,6 +8,9 @@ import com.cameraunlock.core.CameraUnlock;
  * Java holds none of them.
  */
 final class Core {
+    /** Where core reads the keys and reaches the window itself. Elsewhere (Linux) the mod gives it the keys (LinuxKeys), and the window is left alone. */
+    static final boolean WINDOWS = System.getProperty("os.name").startsWith("Windows");
+
     private static CameraUnlock library;
 
     private Core() {}

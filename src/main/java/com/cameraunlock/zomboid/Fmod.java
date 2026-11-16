@@ -49,8 +49,8 @@ final class Fmod {
 
     static {
         Linker linker = Linker.nativeLinker();
-        SymbolLookup studio = SymbolLookup.libraryLookup("fmodstudio.dll", Arena.global());
-        SymbolLookup core = SymbolLookup.libraryLookup("fmod.dll", Arena.global());
+        SymbolLookup studio = library("fmodstudio");
+        SymbolLookup core = library("fmod");
         STUDIO_INSTANCE_VALID = handle(linker, studio, "FMOD_Studio_EventInstance_IsValid", PTR);
         STUDIO_INSTANCE_GROUP = handle(linker, studio, "FMOD_Studio_EventInstance_GetChannelGroup", PTR, PTR);
         STUDIO_INSTANCE_DESCRIPTION = handle(linker, studio, "FMOD_Studio_EventInstance_GetDescription", PTR, PTR);
@@ -74,6 +74,26 @@ final class Fmod {
     }
 
     private Fmod() {}
+
+    /**
+     * One of FMOD's libraries, the copy the game loaded. On Windows that is the one of its name
+     * already in the process. Elsewhere the game's binding loads it with System.loadLibrary, from
+     * the first folder of java.library.path that holds it, so it is looked for there by path.
+     */
+    private static SymbolLookup library(String name) {
+        if (Core.WINDOWS) {
+            return SymbolLookup.libraryLookup(name + ".dll", Arena.global());
+        }
+        String file = System.mapLibraryName(name);
+        String folders = System.getProperty("java.library.path");
+        for (String folder : folders.split(java.io.File.pathSeparator)) {
+            java.nio.file.Path path = java.nio.file.Path.of(folder, file);
+            if (java.nio.file.Files.isRegularFile(path)) {
+                return SymbolLookup.libraryLookup(path, Arena.global());
+            }
+        }
+        throw new IllegalStateException(file + " is in no folder of java.library.path (" + folders + "), where the game loads it from");
+    }
 
     private static MethodHandle handle(Linker linker, SymbolLookup library, String name, MemoryLayout... arguments) {
         return linker.downcallHandle(library.findOrThrow(name), FunctionDescriptor.of(INT_LAYOUT, arguments));
