@@ -10488,22 +10488,23 @@ NEWSPAPER_PEDESTAL_PANE_Y = -0.264
 
 def newspaper_box():
     """A newspaper vending box standing on the ground, the National Dispatch and Louisville Sun Times kind: a cabinet under
-    a lid that overhangs it, with the coin box on top at the front and a pull beside it. The cabinet's front and the coin
-    box's are a pane that shows the sprite's own painting of them, the window, the paper's name under it and the coin
-    plate. Sizes are as street_decoration_01_85 paints them. The origin is the middle of the cabinet's foot."""
+    a lid that overhangs it, with the coin box on top at its front left, its grey coin plate on its front, and the handle
+    on the lid behind it. The cabinet's front is a pane that shows the sprite's own painting of it, the window and the
+    paper's name under it; the coin box is plain paint. Sizes and places are as street_decoration_01_85 paints them. The
+    origin is the middle of the cabinet's foot."""
     model = Model("newspaper_box", centred=False)
     half, depth, high, lid, over = 0.375, 0.31, 1.10, 0.04, 0.025
     body = bmesh.new()
     cuboid(body, -half, half, -depth, depth, 0.0, high)
     cuboid(body, -half - over, half + over, -depth - over, depth + over, high, high + lid)
-    cuboid(body, -0.11, 0.11, -depth, 0.05, high + lid, 1.50)
+    cuboid(body, -0.11, 0.18, -depth, -0.05, high + lid, 1.50)
+    cuboid(body, 0.05, 0.17, 0.0, 0.14, high + lid, high + lid + 0.06)
     model.hard(body, "paint", bevel=0.006, segments=2)
-    pull = bmesh.new()
-    cuboid(pull, 0.16, 0.28, -0.1, 0.05, high + lid, high + lid + 0.07)
-    model.hard(pull, "metal", bevel=0.004, segments=1)
+    plate = bmesh.new()
+    cuboid(plate, -0.07, 0.13, -depth - 0.004, -depth, 1.32, 1.44)
+    model.hard(plate, "metal", bevel=0.002, segments=1)
     face = bmesh.new()
     cuboid(face, -half + 0.006, half - 0.006, NEWSPAPER_BOX_PANE_Y, NEWSPAPER_BOX_PANE_Y + 0.004, 0.006, high - 0.004)
-    cuboid(face, -0.105, 0.105, NEWSPAPER_BOX_PANE_Y, NEWSPAPER_BOX_PANE_Y + 0.004, high + lid + 0.004, 1.495)
     model.plain(face, "pane")
     return model
 
