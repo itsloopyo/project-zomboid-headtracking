@@ -999,7 +999,8 @@ ShotsFromVehicleSeats=true
 DriveWhileAiming=true
 ; true: offline, driving in first person, hills pull a vehicle down them and can throw it into the air over a crest
 ; at speed. false: vehicles move as on the game's level ground. On a server they always do.
-; Takes effect at once. From the next start, off also stops the mod changing the game's own code for this.
+; Takes effect at once. With this and VehiclesStayUprightInTurns both off, the mod stops changing the game's own code
+; for this from the next start.
 HillsMoveVehicles=true
 ; true: in first person, a light in your hands is switched off when you take the driver's seat, since your hands
 ; are on the wheel. false: it stays as it was.

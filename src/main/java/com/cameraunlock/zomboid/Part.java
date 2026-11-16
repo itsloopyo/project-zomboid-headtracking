@@ -176,7 +176,9 @@ enum Part {
                     + "players can hurt each other, the game's rule applies."),
     HILLS_MOVE_VEHICLES("Rules", "HillsMoveVehicles", true, true,
             "true: offline, driving in first person, hills pull a vehicle down them and can throw it into the air over a crest\n"
-                    + "at speed. false: vehicles move as on the game's level ground. On a server they always do."),
+                    + "at speed. false: vehicles move as on the game's level ground. On a server they always do.",
+            "Takes effect at once. With this and VehiclesStayUprightInTurns both off, the mod stops changing the game's own code\n"
+                    + "for this from the next start."),
     HAND_LIGHT_OUT_AT_THE_WHEEL("Rules", "HandLightOutAtTheWheel", true, false,
             "true: in first person, a light in your hands is switched off when you take the driver's seat, since your hands\n"
                     + "are on the wheel. false: it stays as it was."),
@@ -256,14 +258,23 @@ enum Part {
         this(section, key, live, start, true, comment);
     }
 
+    /** A part made of patches that another row also keeps in the game's code, so its last line names both. */
+    Part(String section, String key, boolean live, boolean start, String comment, String lastLine) {
+        this(section, key, live, start, true, comment + "\n" + lastLine, false);
+    }
+
     Part(String section, String key, boolean live, boolean start, boolean byDefault, String comment) {
+        this(section, key, live, start, byDefault, comment, true);
+    }
+
+    private Part(String section, String key, boolean live, boolean start, boolean byDefault, String comment, boolean ownLastLine) {
         this.section = section;
         this.key = key;
         this.live = live;
         this.start = start;
         this.byDefault = byDefault;
         on = atStart = patched = byDefault;
-        this.comment = start ? comment + "\n" + (live ? LIVE_AND_NEXT_START : NEXT_START) : comment;
+        this.comment = start && ownLastLine ? comment + "\n" + (live ? LIVE_AND_NEXT_START : NEXT_START) : comment;
     }
 
     /** The last line of the row of a part made of patches, saying when off is taken. */
