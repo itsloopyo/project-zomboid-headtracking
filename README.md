@@ -105,7 +105,7 @@ Zombies, and rooms and vehicles with no other player in them, look the same as t
 
 - [Project Zomboid on Steam](https://store.steampowered.com/app/108600/Project_Zomboid/), tested on build **42.22.2**. Your build is on the first line of `version.txt` in your `Zomboid` user folder (`C:\Users\<you>\Zomboid`). Other stores haven't been tested.
 - For head tracking: [OpenTrack](https://github.com/opentrack/opentrack) with a tracking source, or an app that sends the OpenTrack UDP protocol. First person doesn't need either.
-- Windows 10 or 11, 64-bit
+- Windows 10 or 11, 64-bit, or Linux with the Steam Workshop version through ZombieBuddy
 - For first person: a graphics card and driver that give the game OpenGL 3.3 (compatibility profile) with EXT_texture_array, and at least 29 texture units and 2888 uniform components in a fragment shader. Without those, first person stays off, the game looks as it does without the mod, and `ProjectZomboidHeadTracking.log` says what's missing.
 - For the Steam Workshop version: [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x, set up once
 
@@ -154,9 +154,10 @@ Lopari writes `ProjectZomboid64.site.json` the same way when it installs the mod
 The Workshop version is loaded by [ZombieBuddy](https://github.com/zed-0xff/ZombieBuddy) 2.x and has been tested with 2.3.4. ZombieBuddy 3.0 isn't supported yet.
 
 1. Subscribe to [ZombieBuddy](https://steamcommunity.com/sharedfiles/filedetails/?id=3619862853) on the Steam Workshop.
-2. Set ZombieBuddy up. You only do this once, and if you already play another mod that needs it, it's done. Otherwise use one of the two ways on ZombieBuddy's Workshop page:
+2. Set ZombieBuddy up. You only do this once, and if you already play another mod that needs it, it's done. Otherwise use one of these ways from ZombieBuddy's Workshop page and README:
    - **Installer:** download `ZombieBuddyInstaller.exe` from [ZombieBuddy's GitHub releases](https://github.com/zed-0xff/ZombieBuddy/releases/tag/windows_installer), run it and choose **Install or update ZombieBuddy**. Pick which launch mode to patch (ZombieBuddy recommends **Both**). It lists every change before it makes it, and asks you to close Steam if it needs to change the launch options.
    - **By hand:** copy `ZombieBuddy.jar` and `zbNative.dll` from `steamapps\workshop\content\108600\3619862853\mods\ZombieBuddy\libs\` into the game folder, then in Steam open Project Zomboid's **Properties** and set **Launch Options** to `-agentlib:zbNative --`. You need the `--` at the end.
+   - **On Linux:** ZombieBuddy's README gives this way: copy `ZombieBuddy.jar` from that same `libs` folder into the game folder, and set **Launch Options** to `-javaagent:ZombieBuddy.jar --`.
 3. Subscribe to PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking on the Steam Workshop.
 4. Start the game, open **Mods** from the main menu, enable ZombieBuddy and PZHT - First Person + Graphics & Gameplay Overhaul + Head Tracking, then quit and start the game again. ZombieBuddy starts Java mods as the game starts, so they only load after that restart.
 5. ZombieBuddy asks whether to load the mod's Java code. Click **Yes**. With ZombieBuddy's default settings it asks again after every update to the mod.
@@ -1026,13 +1027,13 @@ ControllerChoiceFix=true
 ; at Low. With this and FirstPersonEnabled both off, the mod stops changing the game's own code for this from the
 ; next start.
 TalkingMouths=false
-; Your microphone, by the name Windows gives it, Default for Windows' own default, or None.
+; Your microphone, by the name the system gives it, Default for the system's own default, or None.
 Microphone=Default
-; The microphone of player 2 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+; The microphone of player 2 at the screen, by the name the system gives it, Default for the system's own default, or None.
 SecondPlayerMicrophone=None
-; The microphone of player 3 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+; The microphone of player 3 at the screen, by the name the system gives it, Default for the system's own default, or None.
 ThirdPlayerMicrophone=None
-; The microphone of player 4 at the screen, by the name Windows gives it, Default for Windows' own default, or None.
+; The microphone of player 4 at the screen, by the name the system gives it, Default for the system's own default, or None.
 FourthPlayerMicrophone=None
 ```
 <!-- /cameraunlock:config -->

@@ -550,8 +550,8 @@ final class Config {
                 writable | live, false);
         for (int player = 0; player < microphones.length; player++) {
             microphones[player] = core.configLocalText("Voice", MICROPHONE_ROWS[player],
-                    (player == 0 ? "Your microphone" : "The microphone of player " + (player + 1) + " at the screen") + ", by the name Windows gives it, "
-                            + Microphones.DEFAULT + " for Windows' own default, or " + Microphones.NONE + ".",
+                    (player == 0 ? "Your microphone" : "The microphone of player " + (player + 1) + " at the screen") + ", by the name the system gives it, "
+                            + Microphones.DEFAULT + " for the system's own default, or " + Microphones.NONE + ".",
                     writable | live, player == 0 ? Microphones.DEFAULT : Microphones.NONE);
         }
 

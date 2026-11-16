@@ -304,9 +304,9 @@ public final class CoreTests {
         check(Tracking.lightMultiplier() == 1.5f, "and the light turned one and a half times the head");
         check(!Mouths.on() && holds("TalkingMouths=false") && Tracking.microphones().equals(List.of("Default", "None", "None", "None"))
                         && holds("Microphone=Default") && holds("SecondPlayerMicrophone=None") && holds("FourthPlayerMicrophone=None"),
-                "and talking mouths off, so no microphone is opened, with player 1 on Windows' default microphone and the others on none: "
+                "and talking mouths off, so no microphone is opened, with player 1 on the system's default microphone and the others on none: "
                         + Tracking.microphones());
-        int firstPersonTaps = 0, besideViewpointTaps = 0;
+        int firstPersonTaps = 0;
         for (int bit : Config.FIRST_PERSON_TAPS) {
             firstPersonTaps |= bit;
         }
