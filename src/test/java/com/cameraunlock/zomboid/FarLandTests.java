@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.zip.CRC32;
 import javax.imageio.ImageIO;
 import zombie.core.properties.PropertyContainer;
@@ -22,10 +23,16 @@ import zombie.iso.sprite.IsoSpriteManager;
 final class FarLandTests {
     private FarLandTests() {}
 
-    private static final int[][] DRY = new int[9][];
+    private static final FarCells.Around DRY = around(new int[9][]);
 
-    static {
-        Arrays.setAll(DRY, i -> new int[FarCells.SIDE]);
+    /** The nine cells as given, those not given dry, and every cell further off dry. */
+    private static FarCells.Around around(int[][] nine) {
+        for (int at = 0; at < nine.length; at++) {
+            if (nine[at] == null) {
+                nine[at] = new int[FarCells.SIDE];
+            }
+        }
+        return new FarCells.Around(nine, (dx, dy) -> new int[FarCells.SIDE]);
     }
 
     static void run() {
@@ -35,6 +42,7 @@ final class FarLandTests {
         Checks.run("theLandLiesUnderTheHollowsOfOpenGround", FarLandTests::theLandLiesUnderTheHollowsOfOpenGround);
         Checks.run("waterLiesUnderTheBuiltWorldsWater", FarLandTests::waterLiesUnderTheBuiltWorldsWater);
         Checks.run("aBuildingIsABlockOfItsFloors", FarLandTests::aBuildingIsABlockOfItsFloors);
+        Checks.run("aBuildingReachingPastTheNextCellIsMade", FarLandTests::aBuildingReachingPastTheNextCellIsMade);
         Checks.run("aFloorSmallerThanTheOneUnderItLeavesARoofBeside", FarLandTests::aFloorSmallerThanTheOneUnderItLeavesARoofBeside);
         Checks.run("aCellarAloneIsNoBuilding", FarLandTests::aCellarAloneIsNoBuilding);
         Checks.run("roomsOverNothingStandOnTheGround", FarLandTests::roomsOverNothingStandOnTheGround);
@@ -141,15 +149,37 @@ final class FarLandTests {
         }
         check(FarCells.toWater(DRY, 100f, 100f) == Terrain.VALLEY, "with no water about, it is a valley's width away");
 
-        int[][] around = new int[9][];
-        Arrays.setAll(around, i -> new int[FarCells.SIDE]);
-        around[4][0] = 1;
+        int[][] nine = new int[9][];
+        FarCells.Around around = around(nine);
+        nine[4][0] = 1;
         check(FarCells.toWater(around, 20f, 4f) == 12f, "water in the chunk at the cell's corner is 12 tiles from a place 20 along");
         check(FarCells.toWater(around, 4f, 4f) == 0f, "and no way from a place in that chunk");
-        Arrays.fill(around[4], 0);
+        Arrays.fill(nine[4], 0);
         // The cell to the west, its last chunk along the top row.
-        around[3][0] = 1 << FarCells.SIDE - 1;
+        nine[3][0] = 1 << FarCells.SIDE - 1;
         check(FarCells.toWater(around, 3f, 4f) == 3f, "water in the next cell is found across the edge");
+
+        // Two cells east, its first chunk along the top row: past the nine.
+        int[] twoEast = new int[FarCells.SIDE];
+        twoEast[0] = 1;
+        FarCells.Around further = new FarCells.Around(around(new int[9][]).nine(), (dx, dy) -> dx == 2 && dy == 0 ? twoEast : new int[FarCells.SIDE]);
+        check(FarCells.toWater(further, 2 * 256f + 4f, 4f) == 0f, "and water in a cell past the nine is found there");
+    }
+
+    /**
+     * Building 5 of the game's own cell 28, 45 runs from 172 to 526 tiles east of the cell's corner and from 166 to 401 south of
+     * it, so the water about its corners is asked of a cell two east of its own, past the nine round it.
+     */
+    private static void aBuildingReachingPastTheNextCellIsMade() {
+        List<String> asked = new ArrayList<>();
+        FarCells.Around around = new FarCells.Around(around(new int[9][]).nine(), (dx, dy) -> {
+            asked.add(dx + ", " + dy);
+            return new int[FarCells.SIDE];
+        });
+        int[] buildings = {11, 1, 28 * 256 + 172, 45 * 256 + 166, 354, 235, 0};
+        ByteBuffer blocks = FarCells.blocks(buildings, around, 28, 45);
+        check(blocks.limit() > 0, "the building is made");
+        check(asked.contains("2, 0") && asked.contains("2, 1"), "and the cells two east of its own were asked about, and were: " + asked);
     }
 
     private static void theLandLiesAsTheBuiltWorldsDoes() {
@@ -200,9 +230,9 @@ final class FarLandTests {
 
     private static void waterLiesUnderTheBuiltWorldsWater() {
         // A river one chunk wide across the middle of the cell, with land either side of it.
-        int[][] river = new int[9][];
-        Arrays.setAll(river, i -> new int[FarCells.SIDE]);
-        river[4][FarCells.SIDE / 2] = -1;
+        int[][] nine = new int[9][];
+        FarCells.Around river = around(nine);
+        nine[4][FarCells.SIDE / 2] = -1;
         ByteBuffer to = buffer(FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES);
         FarCells.land(river, 49, 5, to);
         int corners = 0;

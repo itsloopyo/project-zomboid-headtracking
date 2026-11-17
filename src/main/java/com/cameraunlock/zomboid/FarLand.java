@@ -3,6 +3,7 @@ package com.cameraunlock.zomboid;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -396,28 +397,20 @@ final class FarLand {
     private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings, FarTreeKinds kinds, FarTrees.Lot lot, FarTiles.Cell tiles) {
         OffHeap.Block block = null;
         try {
-            int[][] around = new int[9][];
-            int[] pixels = null;
+            int[] pixels = read(from, cellX, cellY);
+            int[][] nine = new int[9][];
             for (int j = -1; j <= 1; j++) {
                 for (int i = -1; i <= 1; i++) {
-                    long near = key(cellX + i, cellY + j);
-                    int[] known = waters.get(near);
-                    if (known == null || i == 0 && j == 0) {
-                        int[] read = read(from, cellX + i, cellY + j);
-                        if (known == null) {
-                            if (waters.size() >= WATERS_KEPT) {
-                                waters.clear();
-                            }
-                            known = FarCells.waters(read);
-                            waters.put(near, known);
-                        }
-                        if (i == 0 && j == 0) {
-                            pixels = read;
-                        }
-                    }
-                    around[(j + 1) * 3 + i + 1] = known;
+                    nine[(j + 1) * 3 + i + 1] = i == 0 && j == 0 ? watersOf(cellX, cellY, pixels) : watersOf(from, cellX + i, cellY + j);
                 }
             }
+            FarCells.Around around = new FarCells.Around(nine, (dx, dy) -> {
+                try {
+                    return watersOf(from, cellX + dx, cellY + dy);
+                } catch (IOException thrown) {
+                    throw new UncheckedIOException(thrown);
+                }
+            });
             FarLot laid = tiles == null ? null : laid(tiles, cellX, cellY);
             ByteBuffer blocks = FarCells.blocks(buildings, around, cellX, cellY, laid);
             ByteBuffer treesMade = lot == null ? ByteBuffer.allocate(0) : FarTrees.make(kinds, lot, cellX, cellY, around);
@@ -469,6 +462,25 @@ final class FarLand {
                     + " has the colours of the game's map on them, as the game loads them empty. The first: " + skipped.get(0).getMessage());
         }
         return laid;
+    }
+
+    /** The cells' thread: which chunks of a cell have water in them (FarCells.waters), read once and kept. */
+    private static int[] watersOf(List<Source> from, int cellX, int cellY) throws IOException {
+        int[] known = waters.get(key(cellX, cellY));
+        return known != null ? known : watersOf(cellX, cellY, read(from, cellX, cellY));
+    }
+
+    private static int[] watersOf(int cellX, int cellY, int[] pixels) {
+        long near = key(cellX, cellY);
+        int[] known = waters.get(near);
+        if (known == null) {
+            if (waters.size() >= WATERS_KEPT) {
+                waters.clear();
+            }
+            known = FarCells.waters(pixels);
+            waters.put(near, known);
+        }
+        return known;
     }
 
     /** The picture of a cell, a row of tiles at a time, or null where no picture of the map has it. */

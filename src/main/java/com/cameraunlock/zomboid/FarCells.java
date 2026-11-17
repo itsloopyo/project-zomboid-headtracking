@@ -114,12 +114,26 @@ final class FarCells {
     }
 
     /**
-     * How far (x, y) is from the nearest chunk with water in it, in tiles, and Terrain.VALLEY if
-     * from none that near. The place is counted from the corner of the middle one of nine cells.
-     *
-     * @param around waters of the nine cells, a row of cells at a time from the least y
+     * The waters of the cells round the one being made, by a cell's place counted in cells from it.
+     * The nine nearest are held, a row of cells at a time from the least y. A building can reach
+     * further than the next cell (one in 28, 45 of the game's own map runs 526 tiles east of its
+     * cell's corner), and the cells it asks about beyond the nine come from `further`.
      */
-    static float toWater(int[][] around, float x, float y) {
+    record Around(int[][] nine, Further further) {
+        interface Further {
+            int[] waters(int dx, int dy);
+        }
+
+        int[] of(int dx, int dy) {
+            return dx >= -1 && dx <= 1 && dy >= -1 && dy <= 1 ? nine[(dy + 1) * 3 + dx + 1] : further.waters(dx, dy);
+        }
+    }
+
+    /**
+     * How far (x, y) is from the nearest chunk with water in it, in tiles, and Terrain.VALLEY if
+     * from none that near. The place is counted from the corner of the cell being made.
+     */
+    static float toWater(Around around, float x, float y) {
         int reach = (int) Math.ceil(Terrain.VALLEY / STEP);
         int chunkX = (int) Math.floor(x / STEP), chunkY = (int) Math.floor(y / STEP);
         float nearest = Terrain.VALLEY;
@@ -137,13 +151,13 @@ final class FarCells {
     }
 
     /** Whether the chunk (cx, cy), counted as toWater counts places, has water in it. */
-    private static boolean watered(int[][] around, int cx, int cy) {
-        int[] rows = around[(Math.floorDiv(cy, SIDE) + 1) * 3 + Math.floorDiv(cx, SIDE) + 1];
+    private static boolean watered(Around around, int cx, int cy) {
+        int[] rows = around.of(Math.floorDiv(cx, SIDE), Math.floorDiv(cy, SIDE));
         return (rows[Math.floorMod(cy, SIDE)] >>> Math.floorMod(cx, SIDE) & 1) != 0;
     }
 
     /** The land of a cell: LAND_VERTICES vertices, drawn as one strip. */
-    static void land(int[][] around, int cellX, int cellY, ByteBuffer to) {
+    static void land(Around around, int cellX, int cellY, ByteBuffer to) {
         // One corner more all round, for the slope at the cell's own edge.
         int ring = CORNERS + 2;
         float[] heights = new float[ring * ring];
@@ -187,7 +201,7 @@ final class FarCells {
     }
 
     /** The buildings of a cell as blocks in a few colours, as blocks(buildings, around, cellX, cellY, null) makes them. */
-    static ByteBuffer blocks(int[] buildings, int[][] around, int cellX, int cellY) {
+    static ByteBuffer blocks(int[] buildings, Around around, int cellX, int cellY) {
         return blocks(buildings, around, cellX, cellY, null);
     }
 
@@ -206,7 +220,7 @@ final class FarCells {
      * @param lot       what the cell's lotpack lays, or null
      * @return the vertices, in a buffer of the machine's byte order that ends at the last of them
      */
-    static ByteBuffer blocks(int[] buildings, int[][] around, int cellX, int cellY, FarLot lot) {
+    static ByteBuffer blocks(int[] buildings, Around around, int cellX, int cellY, FarLot lot) {
         Out out = new Out();
         int baseX = cellX * CELL, baseY = cellY * CELL;
         for (int at = 0; at < buildings.length; ) {

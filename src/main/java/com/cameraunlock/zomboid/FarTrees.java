@@ -124,7 +124,7 @@ final class FarTrees {
      *
      * @param around as FarCells.toWater takes it, for the height of the land under each tree
      */
-    static ByteBuffer make(FarTreeKinds kinds, Lot lot, int cellX, int cellY, int[][] around) throws IOException {
+    static ByteBuffer make(FarTreeKinds kinds, Lot lot, int cellX, int cellY, FarCells.Around around) throws IOException {
         if (biomes == null) {
             biomes = new BiomeMap();
         }
@@ -226,7 +226,7 @@ final class FarTrees {
     }
 
     /** The height of the far land's surface at a place in the cell: the land is drawn from heights at the corners of its chunks (FarCells.land), and a tree stands on it as drawn. */
-    private static float ground(int cellX, int cellY, int[][] around, float x, float y) {
+    private static float ground(int cellX, int cellY, FarCells.Around around, float x, float y) {
         int step = FarCells.STEP;
         int i = Math.min((int) (x / step), FarCells.SIDE - 1), j = Math.min((int) (y / step), FarCells.SIDE - 1);
         float fx = x / step - i, fy = y / step - j;
@@ -235,7 +235,7 @@ final class FarTrees {
         return (h00 * (1f - fx) + h10 * fx) * (1f - fy) + (h01 * (1f - fx) + h11 * fx) * fy;
     }
 
-    private static float corner(int cellX, int cellY, int[][] around, int i, int j) {
+    private static float corner(int cellX, int cellY, FarCells.Around around, int i, int j) {
         int x = i * FarCells.STEP, y = j * FarCells.STEP;
         return Terrain.HILLS.farUnder(cellX * FarCells.CELL + x, cellY * FarCells.CELL + y, FarCells.toWater(around, x, y));
     }
