@@ -122,12 +122,13 @@ final class WorldQuery {
         }
         IsoGridSquare from = cell.getGridSquare(fromX, fromY, level);
         IsoGridSquare to = cell.getGridSquare(toX, toY, level);
-        if (from != null && to != null && fenceBetween(fromX, fromY, toX, toY, lowFenceOnly(from, true), lowFenceOnly(from, false),
-                lowFenceOnly(to, true), lowFenceOnly(to, false))) {
+        // The edge crossed is one square's north or west (fenceBetween), and only that one is asked about.
+        boolean north = toY != fromY;
+        IsoGridSquare edged = from == null || to == null || !north && toX == fromX ? null : (north ? toY < fromY : toX < fromX) ? from : to;
+        if (edged != null && lowFenceOnly(edged, north)) {
             return to.isSolid();
         }
-        if (from != null && to != null && up > DOOR_HEAD * ViewCamera.LEVEL_HEIGHT
-                && fenceBetween(fromX, fromY, toX, toY, doorway(from, true), doorway(from, false), doorway(to, true), doorway(to, false))) {
+        if (edged != null && up > DOOR_HEAD * ViewCamera.LEVEL_HEIGHT && doorway(edged, north)) {
             return true;
         }
         return solidToTheEye(fromX, fromY, toX, toY);
