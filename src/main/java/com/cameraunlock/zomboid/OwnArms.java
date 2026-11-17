@@ -137,25 +137,27 @@ final class OwnArms {
                 return max(exp(-across * across / 0.0000015), exp(-along * along / 0.0000015));
             }
 
-            vec3 paperTone(vec2 uv) {
+            // The paper's fine grain at uv, which its tone and the wear of its print both go by.
+            float paperGrain(vec2 uv) {
+                return cloud(vec3(uv * SHEET * 500.0, 9.0));
+            }
+
+            // grain is paperGrain(uv), and crease and crossing what creaseNear(uv) gives, here and in printed.
+            vec3 paperTone(vec2 uv, float grain, float crease, float crossing) {
                 vec2 m = uv * SHEET;
-                float mottle = cloud(vec3(m * 60.0, 3.0)), grain = cloud(vec3(m * 500.0, 9.0));
+                float mottle = cloud(vec3(m * 60.0, 3.0));
                 vec2 rim = min(m, SHEET - m);
                 float edge = 1.0 - smoothstep(0.0, 0.025, min(rim.x, rim.y));
-                float crossing;
-                float crease = creaseNear(uv, crossing);
                 float aged = clamp(0.55 * edge * (0.6 + 0.8 * mottle) + 0.45 * crossing + 0.12 * crease, 0.0, 1.0);
                 vec3 tone = uCloth * (0.955 + 0.05 * mottle + 0.03 * grain) * (1.0 - 0.12 * crease);
                 return tone * mix(vec3(1.0), vec3(0.9, 0.82, 0.64), aged);
             }
 
             // What the print lets of the paper through at uv, 1 where nothing is printed.
-            vec3 printed(vec2 uv) {
+            vec3 printed(vec2 uv, float grain, float crease, float crossing) {
                 vec3 ink = clamp(texture2D(uColour, uv, 0.7).rgb / uCloth, 0.0, 1.0);
                 ink = mix(vec3(dot(ink, vec3(0.299, 0.587, 0.114))), ink, 0.85);
-                float crossing;
-                float crease = creaseNear(uv, crossing);
-                float worn = clamp(0.5 * crease + 0.6 * crossing, 0.0, 1.0) * (0.5 + 0.5 * cloud(vec3(uv * SHEET * 500.0, 9.0)));
+                float worn = clamp(0.5 * crease + 0.6 * crossing, 0.0, 1.0) * (0.5 + 0.5 * grain);
                 return mix(ink, vec3(1.0), worn * 0.55);
             }
 
@@ -223,13 +225,18 @@ final class OwnArms {
                 return uOutside < 0.5 || strength < 0.001 ? 0.0 : strength * smoothstep(0.0, 0.6, -dot(n, uSunSeen / strength));
             }
 
-            // The colour of the paper at uv seen from its front or its back, n the way the side the eye sees faces.
-            vec3 paperShown(vec2 uv, bool back, bool pictured, vec3 n) {
-                vec3 front = (pictured ? printed(uv) : vec3(1.0)) * mix(vec3(1.0), INK / uCloth, furniture(uv));
+            // The colour of the paper at uv seen from its front or its back, n the way the side the eye sees faces,
+            // and in tone the bare paper's there.
+            vec3 paperShown(vec2 uv, bool back, bool pictured, vec3 n, out vec3 tone) {
+                float crossing;
+                float crease = creaseNear(uv, crossing);
+                float grain = paperGrain(uv);
+                vec3 front = (pictured ? printed(uv, grain, crease, crossing) : vec3(1.0)) * mix(vec3(1.0), INK / uCloth, furniture(uv));
                 vec3 behind = cover(uv);
                 float through = backlit(n);
                 vec3 seen = back ? behind * mix(vec3(1.0), front, 0.06 + 0.22 * through) : front * mix(vec3(1.0), behind, 0.08 * through);
-                return paperTone(uv) * seen * (1.0 + 0.3 * through);
+                tone = paperTone(uv, grain, crease, crossing);
+                return tone * seen * (1.0 + 0.3 * through);
             }
 
             // The paper's fibre in the way it faces, where it is fine enough to be seen.
@@ -371,11 +378,12 @@ final class OwnArms {
                     n *= sign(dot(n, vOut));
                     // Looked at from behind, the eye sees the back of the paper.
                     bool back = dot(n, vSeen) > 0.0;
-                    vec3 paint = paperShown(vUv, back, uPictured > 0.5, back ? -n : n);
+                    vec3 tone;
+                    vec3 paint = paperShown(vUv, back, uPictured > 0.5, back ? -n : n, tone);
                     if (uPictured > 0.5 && !back && inPrint(vUv)) {
                         vec2 fromPointer = (vUv - uPointerAt) * uMarker.zw;
                         if (pointer(fromPointer, 1.0)) {
-                            paint = vec3(0.86, 0.2, 0.06) * paperTone(vUv);
+                            paint = vec3(0.86, 0.2, 0.06) * tone;
                         } else if (pointer(fromPointer, 1.6)) {
                             paint = vec3(0.07, 0.06, 0.05);
                         }
