@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -168,6 +169,30 @@ final class SpriteColours {
             return null;
         }
         return colour.length == 0 ? null : colour;
+    }
+
+    /** The sprites the far land lays as ground, whose reading measures what they lay over a square too (WallSides.cover). */
+    private static final Set<Texture> covering = ConcurrentHashMap.newKeySet();
+
+    /**
+     * As of, and from WallSides.COVER what the sprite lays over a square of floor. Null while
+     * that is still to be read, a sprite read before the far land asked for it being read again;
+     * empty for a sprite with nothing painted on it.
+     */
+    static float[] coverOf(Texture texture) {
+        boolean first = covering.add(texture);
+        float[] colour = known.get(texture);
+        if (colour == null || colour == ASKED) {
+            of(texture);
+            return null;
+        }
+        if (colour == UNPAINTED || colour.length > WallSides.COVER) {
+            return colour;
+        }
+        if (first) {
+            readAgain(texture);
+        }
+        return null;
     }
 
     /** How many answers a build can wait for have come in since the game started. */
@@ -594,12 +619,18 @@ final class SpriteColours {
         try {
             for (int i = 0; i < copied.size(); i++) {
                 Texture texture = copied.get(i).texture();
-                float[] colour = new float[WallSides.MEAN + 3];
+                boolean covers = covering.contains(texture);
+                float[] colour = new float[covers ? WallSides.COVER + 4 : WallSides.MEAN + 3];
                 place(texture, width, height);
                 int left = placed[0] - fromX, top = placed[1] - fromY, right = placed[2] - fromX, bottom = placed[3] - fromY;
                 boolean painted = WallSides.usualColour(page, across, left, top, right, bottom, colour);
                 if (painted) {
                     WallSides.meanColour(page, across, left, top, right, bottom, colour);
+                    if (covers) {
+                        // The sheet may hold the sprite smaller than its frame: a square's width in texels of the sheet.
+                        float square = texture.getWidthOrig() * (right - left) / (float) Math.max(texture.getWidth(), 1);
+                        WallSides.cover(page, across, left, top, right, bottom, square, colour);
+                    }
                 }
                 known.put(texture, painted ? colour : UNPAINTED);
                 Windows.read(texture, page, across, left, top, right, bottom);

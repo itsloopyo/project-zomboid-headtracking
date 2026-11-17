@@ -453,6 +453,37 @@ final class WallSides {
 
     /** Where in what SpriteColours keeps of a sprite its mean colour starts: after its usual colour and brightness. */
     static final int MEAN = 4;
+    /** Where what a sprite lays over a square of floor starts, after its mean colour: see cover. */
+    static final int COVER = MEAN + 3;
+
+    /**
+     * What a sprite laid flat lays over a square of floor, seen from far enough that the square is
+     * one colour, into out from COVER: its red, green and blue each weighed by how much of a dot
+     * it covers, then how much of the square it covers, all as shares of the square's diamond,
+     * square texels across the sheet. Laid over a square of colour c, the square is then
+     * c * (1 - cover) + the weighed colour, as the game blends a sprite over what is under it.
+     */
+    static void cover(ByteBuffer pixels, int width, int left, int top, int right, int bottom, float square, float[] out) {
+        double red = 0, green = 0, blue = 0, covered = 0;
+        for (int y = top; y < bottom; y++) {
+            for (int x = left; x < right; x++) {
+                int at = (y * width + x) * 4;
+                float alpha = (pixels.get(at + 3) & 0xff) / 255f;
+                red += alpha * (pixels.get(at) & 0xff) / 255f;
+                green += alpha * (pixels.get(at + 1) & 0xff) / 255f;
+                blue += alpha * (pixels.get(at + 2) & 0xff) / 255f;
+                covered += alpha;
+            }
+        }
+        // The diamond of a square of floor is half the box round it: square across, square / 2 down.
+        double diamond = square * square / 4.0;
+        // A sprite that paints more than the diamond (a lip, a kerb's face) covers the whole of it, in the colour it paints.
+        double scale = covered > diamond ? 1.0 / covered : 1.0 / diamond;
+        out[COVER] = (float) (red * scale);
+        out[COVER + 1] = (float) (green * scale);
+        out[COVER + 2] = (float) (blue * scale);
+        out[COVER + 3] = (float) (covered * scale);
+    }
 
     private static int band(ByteBuffer pixels, int at) {
         float bright = RED * (pixels.get(at) & 0xff) + GREEN * (pixels.get(at + 1) & 0xff) + BLUE * (pixels.get(at + 2) & 0xff);
