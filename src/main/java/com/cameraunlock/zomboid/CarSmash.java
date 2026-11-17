@@ -1,6 +1,7 @@
 package com.cameraunlock.zomboid;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.joml.Vector3f;
 import zombie.core.properties.IsoPropertyType;
@@ -144,8 +145,9 @@ final class CarSmash {
                     if (square == null) {
                         continue;
                     }
-                    for (int i = 0; i < SquareObjects.of(square).size(); i++) {
-                        IsoObject thing = SquareObjects.of(square).get(i);
+                    List<IsoObject> things = SquareObjects.of(square);
+                    for (int i = 0; i < things.size(); i++) {
+                        IsoObject thing = things.get(i);
                         Knockdown.Kind kind = knockable(thing);
                         if (kind == null) {
                             continue;
