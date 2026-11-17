@@ -1592,6 +1592,18 @@ public final class Tests {
                     check(rows[0] * v[at + 3] + rows[1] * v[at + 4] == turned[0] && rows[2] * v[at + 3] + rows[3] * v[at + 4] == turned[1],
                             "and looks the way it did," + when);
                 }
+                // The picture's programs are told the turn and the kind of unlit light as one number, and work both back out as here.
+                // The kind plus 1 is 0 for a piece lit as its openness says, and up to 4.
+                System.arraycopy(pieces.floats, Models.Instances.TURN, rows, 0, 4);
+                for (int kindPlusOne = 0; kindPlusOne <= 4; kindPlusOne++) {
+                    pieces.floats[Models.Instances.UNLIT + 4] = kindPlusOne;
+                    float told = Models.Instances.turnAndUnlit(pieces.floats, 0);
+                    float kind = (float) Math.floor((told + 0.5f) / 8f), first = told - 8f * kind - 2f;
+                    float rowX = Math.abs(first) < 1.5f ? first : 0f, rowY = Math.abs(first) < 1.5f ? 0f : 0.5f * first;
+                    check(rows[0] == rowX && rows[1] == rowY && rows[2] == rowY && rows[3] == -rowX && kind == kindPlusOne,
+                            "and its turn and unlit kind " + kindPlusOne + " come back out of the one number the picture is told," + when);
+                }
+                pieces.floats[Models.Instances.UNLIT + 4] = 0f;
             }
         }
         Models.Instances east = stoodWedge(wedge);

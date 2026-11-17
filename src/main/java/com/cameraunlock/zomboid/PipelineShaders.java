@@ -311,23 +311,48 @@ final class PipelineShaders {
      * Where a vertex of one of the mod's models stands: see Models.Instances, whose floats
      * these attributes are, one row of them a piece, so that every piece of a model is drawn
      * in one draw. The picture and every shadow map share it, so a piece's shadow is cast
-     * from where the piece is drawn. aFoot's w is the picture's alone: see WORLD_VERTEX.
+     * from where the piece is drawn. A shadow map is told the piece's quarter turn as its two
+     * rows, aTurn. The picture is told it as one number in aFoot's w, with the kind of light the
+     * game has not given (see Models.Instances.turnAndUnlit), which leaves the four floats the
+     * rows took for where the piece is dyed from, aDye: pieces of one model dyed from different
+     * places are then one draw.
      */
-    private static final String MODEL_STANDS = """
+    private static final String MODEL_STANDS_HEAD = """
             uniform float uModel;
             attribute vec4 aPlace;
             attribute vec4 aFoot;
-            attribute vec4 aTurn;
-
-            vec2 turned(vec2 way) {
-                return vec2(dot(aTurn.xy, way), dot(aTurn.zw, way));
-            }
+            """, MODEL_STANDS_FOOT = """
 
             // Where over the square that lights the piece the vertex is, and how high.
             vec3 over(vec3 at) {
                 return vec3(aFoot.xy + turned(at.xy) * aPlace.z, aFoot.z + at.z * aPlace.w);
             }
             """ + ShotPickets.GLSL;
+    private static final String MODEL_STANDS = MODEL_STANDS_HEAD + """
+            attribute vec4 aTurn;
+
+            vec2 turned(vec2 way) {
+                return vec2(dot(aTurn.xy, way), dot(aTurn.zw, way));
+            }
+            """ + MODEL_STANDS_FOOT;
+    private static final String MODEL_STANDS_DYED = MODEL_STANDS_HEAD + """
+            // Where on the sprite's texture the piece's first colour is taken, then its second: see Models.Instances.DYE.
+            attribute vec4 aDye;
+
+            // The kind of a light the game has not given plus 1, or 0: see Models.Instances.UNLIT.
+            // The half keeps a division worked out a hair too small from losing a kind.
+            float unlitKind() {
+                return floor((aFoot.w + 0.5) / 8.0);
+            }
+
+            // A quarter turn's first row is one of (-1, 0), (0, -1), (1, 0) and (0, 1), told as its x
+            // plus twice its y, and its second row is its first's (y, -x): see Models.turn.
+            vec2 turned(vec2 way) {
+                float told = aFoot.w - 8.0 * unlitKind() - 2.0;
+                vec2 row = abs(told) < 1.5 ? vec2(told, 0.0) : vec2(0.0, 0.5 * told);
+                return vec2(dot(row, way), dot(vec2(row.y, -row.x), way));
+            }
+            """ + MODEL_STANDS_FOOT;
 
     /**
      * The wind in grass. A blade is stiff at its root and limp at its tip, so it is pushed
@@ -600,7 +625,7 @@ final class PipelineShaders {
                 float column = (r - 128.0 * row) * 8.0 + k;
                 return texture2D(uLightPages, vec2((column + 0.5) / 1024.0, (row + 0.5) / uPageRows));
             }
-            """ + GROUND_NOISE + GRASS_WIND + MODEL_STANDS + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
+            """ + GROUND_NOISE + GRASS_WIND + MODEL_STANDS_DYED + FACED + SKY_SEEN + SnowShader.COVER + SnowShader.STOOD + SnowShader.RIDGE + """
             // A model's light at the corners of its square, a row of them a piece as MODEL_STANDS's are. Their w
             // are what it has of the day its room lets in, at the same corners: see Models.Instances.DAY.
             attribute vec4 aLit;
@@ -608,7 +633,7 @@ final class PipelineShaders {
             attribute vec4 aLitDown;
             attribute vec4 aLitAcross;
             // What a model has of a light the game has not given, as aLit and its fellows hold its light; that light's
-            // kind plus 1, or 0, is aFoot's w: see Models.Instances.UNLIT.
+            // kind plus 1, or 0, is unlitKind: see Models.Instances.UNLIT.
             attribute vec4 aUnlit;
             // How many squares along x and y the light above is spread over from the square aPlace names: see Models.Instances.span.
             // Its z and w are the pickets shots broke out of a length of picket fence: see Models.Instances.pickets.
@@ -616,7 +641,6 @@ final class PipelineShaders {
             // The model's openness to the sky, the surfaces dyed from each of the two places on the sprite, and 1 for one
             // laid as a wall's own face, 2 for one run on past its wall's end: see Models.Instances.wall and wallEnd.
             uniform vec4 uSurfaces;
-            uniform vec4 uDye;
             uniform vec4 uPicture;
 
             // Whether the surface's bit is set in a whole number of them. The half is there for a
@@ -705,7 +729,7 @@ final class PipelineShaders {
                     float surface = mod(coded, 32.0);
                     piece = floor(coded / 32.0) + mod(aPlace.x * 7.0 + aPlace.y * 13.0, 997.0);
                     bool dyed = has(uSurfaces.y, surface), also = has(uSurfaces.z, surface);
-                    vUv = dyed ? uDye.xy : also ? uDye.zw : vec2(0.0);
+                    vUv = dyed ? aDye.xy : also ? aDye.zw : vec2(0.0);
                     // What a frame holds shows the sprite itself, laid over the model's face: each
                     // vertex looks at its own place on it.
                     // So does the glass of a set that is on.
@@ -714,7 +738,7 @@ final class PipelineShaders {
                     }
                     vColor = vec4(gl_MultiTexCoord0.y * (aLit.rgb + share.x * aLitAlong.rgb + share.y * aLitDown.rgb + share.x * share.y * aLitAcross.rgb),
                             uSurfaces.x + 32.0 * ((dyed || also ? 35.0 : 16.0) + surface));
-                    unlit = aFoot.w < 0.5 ? -1.0 : (aFoot.w - 1.0) * 16.0 + aUnlit.x + share.x * aUnlit.y + share.y * aUnlit.z + share.x * share.y * aUnlit.w;
+                    unlit = unlitKind() < 0.5 ? -1.0 : (unlitKind() - 1.0) * 16.0 + aUnlit.x + share.x * aUnlit.y + share.y * aUnlit.z + share.x * share.y * aUnlit.w;
                     day = aLit.w + share.x * aLitAlong.w + share.y * aLitDown.w + share.x * share.y * aLitAcross.w;
                 }
                 // What the game has given no light carries the shade it is lit in, and above the

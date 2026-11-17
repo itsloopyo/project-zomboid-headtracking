@@ -2625,8 +2625,8 @@ final class Pipeline {
             Screens.giveBack();
         }
         // Each piece by its model, then its picture, then its place in the list: a run of pieces of
-        // one model with one picture, surfaces and dye is one draw, each piece told where it stands
-        // and how it is lit by its own row of placedRows.
+        // one model with one picture and surfaces is one draw, each piece told where it stands,
+        // where it is dyed from and how it is lit by its own row of placedRows.
         if (modelsListed > LISTED_BITS) {
             throw new IllegalStateException(modelsListed + " pieces listed, more than the order of drawListed holds");
         }
@@ -2650,7 +2650,7 @@ final class Pipeline {
             float[] f = drawn.get(modelChunk[listed]).placed.floats;
             int at = (modelPiece[listed] >> 1) * Models.Instances.FLOATS;
             int light = at + Models.Instances.LIGHT, day = at + Models.Instances.DAY, unlit = at + Models.Instances.UNLIT;
-            placedRows.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(f[unlit + 4]).put(f, at + Models.Instances.TURN, 4)
+            placedRows.put(f, at + Models.Instances.PLACE, 4).put(f, at + Models.Instances.FOOT, 3).put(Models.Instances.turnAndUnlit(f, at)).put(f, at + Models.Instances.DYE, 4)
                     .put(f, light, 3).put(f[day]).put(f, light + 3, 3).put(f[day + 1]).put(f, light + 6, 3).put(f[day + 2]).put(f, light + 9, 3).put(f[day + 3])
                     .put(f, unlit, 4).put(f, at + Models.Instances.SPAN, 2).put(f, at + Models.Instances.PICKETS, 2);
         }
@@ -2666,9 +2666,8 @@ final class Pipeline {
             GL20.glEnableVertexAttribArray(attribute);
             GL33.glVertexAttribDivisor(attribute, 1);
         }
-        int surfacesAt = program.at("uSurfaces"), dyeAt = 0, pictureAt = 0, texelAt = 0, tubeAt = 0, lampAt = 0;
+        int surfacesAt = program.at("uSurfaces"), pictureAt = 0, texelAt = 0, tubeAt = 0, lampAt = 0;
         if (shaded) {
-            dyeAt = program.at("uDye");
             lampAt = program.at("uLamp");
             pictureAt = program.at("uPicture");
             texelAt = program.at("uTexel");
@@ -2718,12 +2717,14 @@ final class Pipeline {
                     // worked out now, and the picture is laid so that the part fills the glass.
                     named = Screens.now(named, tube);
                     float of = tube[2];
-                    GL20.glUniform4f(dyeAt, tube[0] + (f[dye] - 0.5f) * of, tube[1] + (f[dye + 1] - 0.5f) * of, f[dye + 2], f[dye + 3]);
+                    // It is a run of one, whose row is told again with where the shot's part puts the first colour.
+                    liveDye.clear();
+                    liveDye.put(tube[0] + (f[dye] - 0.5f) * of).put(tube[1] + (f[dye + 1] - 0.5f) * of).put(f[dye + 2]).put(f[dye + 3]).flip();
+                    GL15.glBufferSubData(GL_ARRAY_BUFFER, (long) from * PLACED_STRIDE + PLACED_DYE_AT * Float.BYTES, liveDye);
                     GL20.glUniform4f(pictureAt, f[picture] * of, f[picture + 1] * of, f[picture + 2] * of, f[picture + 3] * of);
                     GL20.glUniform4f(tubeAt, tube[0], tube[1], of, tube[3] == Screens.SNOW ? Screens.SNOW : f[dye + 2]);
                     tubed = true;
                 } else {
-                    GL20.glUniform4f(dyeAt, f[dye], f[dye + 1], f[dye + 2], f[dye + 3]);
                     GL20.glUniform4f(pictureAt, f[picture], f[picture + 1], f[picture + 2], f[picture + 3]);
                     if (tubed) {
                         GL20.glUniform4f(tubeAt, 0.5f, 0.5f, 1f, Screens.IN_COLOUR);
@@ -2755,8 +2756,8 @@ final class Pipeline {
 
     /**
      * Whether the piece listed at other is drawn in the run of the piece whose floats start at at
-     * in f: the same picture, laid as a wall's face or not as it is, and with shaded the same surfaces, dye and picture laid on it
-     * and lit or out as a lamp as it is.
+     * in f: the same picture, laid as a wall's face or not as it is, and with shaded the same surfaces and picture laid on it
+     * and lit or out as a lamp as it is. Where each is dyed from is in its own row.
      * Their model is the same, which the order the run is in has said.
      */
     private boolean sameRun(float[] f, int at, int named, int other, boolean shaded) {
@@ -2774,7 +2775,6 @@ final class Pipeline {
             return true;
         }
         return !differ(g, to + Models.Instances.SURFACES, f, at + Models.Instances.SURFACES, 3)
-                && !differ(g, to + Models.Instances.DYE, f, at + Models.Instances.DYE, 4)
                 && !differ(g, to + Models.Instances.PICTURE, f, at + Models.Instances.PICTURE, 4)
                 && g[to + Models.Instances.LAMP] == f[at + Models.Instances.LAMP];
     }
@@ -2785,8 +2785,11 @@ final class Pipeline {
     private FloatBuffer placedRows;
     private int placedBuffer;
     private static final int PLACED_FLOATS = 36, PLACED_STRIDE = PLACED_FLOATS * Float.BYTES;
+    /** Where in a row of placedRows aDye starts, and the dye of a set showing a programme, which is worked out as it is drawn. */
+    private static final int PLACED_DYE_AT = 8;
+    private final FloatBuffer liveDye = ByteBuffer.allocateDirect(4 * Float.BYTES).order(ByteOrder.nativeOrder()).asFloatBuffer();
     /**
-     * Where the world programs' aPlace, aFoot, aTurn, aLit, aLitAlong, aLitDown, aLitAcross,
+     * Where the world programs' aPlace, aFoot, aDye, aLit, aLitAlong, aLitDown, aLitAcross,
      * aUnlit and aSpan (with the pickets shot out of a picket fence) are bound, in the order of a row of placedRows: the first three where the
      * shadow programs have theirs, and the rest at places no built-in attribute the programs read
      * shares on NVIDIA (see SHADOW_PLACES_FROM): 4 is the secondary colour's, 12 to 15 the
@@ -2795,7 +2798,7 @@ final class Pipeline {
      */
     private static final int[] PLACED_ATTRIBUTES = {5, 6, 7, 4, 12, 13, 14, 15, 1};
     private static final int[] PLACED_SIZES = {4, 4, 4, 4, 4, 4, 4, 4, 4};
-    private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aTurn", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit", "aSpan"};
+    private static final String[] PLACED_NAMES = {"aPlace", "aFoot", "aDye", "aLit", "aLitAlong", "aLitDown", "aLitAcross", "aUnlit", "aSpan"};
 
     /** The order castModels casts the pieces listed in, model by model: each as its model's first corner, then its place in the list. */
     private long[] castOrder = new long[256];

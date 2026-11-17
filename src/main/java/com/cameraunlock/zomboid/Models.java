@@ -588,6 +588,16 @@ final class Models {
          */
         static final int FIRST = 0, COUNT = 1, PLAIN_FIRST = 2, PLAIN_COUNT = 3, TEXTURE = 4, BUILT = 5;
         static final int INTS = 6;
+
+        /**
+         * The quarter turn of the piece whose floats start at at in f and the kind of light the
+         * game has not given it, as the picture's programs are told the two in one number: the
+         * turn's first row's x plus twice its y, which is -2, -1, 1 or 2 (see turn), plus 2, plus
+         * 8 for each of the kind plus 1 that UNLIT ends with.
+         */
+        static float turnAndUnlit(float[] f, int at) {
+            return f[at + TURN] + 2f * f[at + TURN + 1] + 2f + 8f * f[at + UNLIT + 4];
+        }
         /**
          * How much of a pixel a piece's two models may be apart where the plain one is drawn.
          * A bevel the plain one leaves out shows as the groove between two boards, which is
