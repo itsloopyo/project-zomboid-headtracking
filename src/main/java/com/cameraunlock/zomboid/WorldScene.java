@@ -2605,7 +2605,7 @@ final class WorldScene {
             farHills = hills;
             farLand.forget();
         }
-        farLand.tend(eyeX, eyeY);
+        farLand.tend(view.index, eyeX, eyeY);
     }
 
     /** Logic thread: has the view's country level or not, and lets go of every build made on it the other way. */
@@ -4591,7 +4591,7 @@ final class WorldScene {
             drawDistance.take(view.index, pose.eyeX, pose.eyeY, seated ? view.ride.aheadX : 0f, seated ? view.ride.aheadY : 0f, Online.contested());
             // On the camera's way between the views as well, so the far land is there when it comes into sight.
             if (!fromOutside || !view.flight.home()) {
-                farLand.tend(pose.eyeX, pose.eyeY);
+                farLand.tend(view.index, pose.eyeX, pose.eyeY);
             }
             float cosCone = fromOutside ? -1f : cosDrawnCone(pose, flat);
             // A driver's mirror shows a narrow cone straight behind the vehicle, and what is in it is drawn as well.

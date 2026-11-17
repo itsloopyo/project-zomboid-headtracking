@@ -179,6 +179,7 @@ final class Pipeline {
     private static final int GL_STREAM_READ = 0x88E1;
     private static final int GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
     private static final int GL_SAMPLER_BINDING = 0x8919;
+    private static final int GL_ACTIVE_TEXTURE = 0x84E0;
     private static final int GL_UNPACK_ALIGNMENT = 0x0CF5;
     private static final int GL_UNPACK_ROW_LENGTH = 0x0CF2;
     private static final int GL_UNPACK_SKIP_ROWS = 0x0CF3;
@@ -6956,6 +6957,9 @@ final class Pipeline {
         public void render() {
             try {
                 view.worldScene.farLand.hand();
+                if (FarTiles.waiting) {
+                    readForFar();
+                }
             } catch (RuntimeException thrown) {
                 // Thrown on, it ends the game's whole frame, and comes again on the next.
                 failure = "handing the far land to the graphics card threw " + thrown;
@@ -6963,6 +6967,45 @@ final class Pipeline {
             }
         }
     };
+
+    /**
+     * Reads the next sprite sheet waited on, as the picture's frame reads one, where no picture
+     * is drawn: the far land's cells wait for the colours of the tiles they lay (FarTiles), and
+     * the loading screen waits for the cells round the eye. The game's bindings are set aside
+     * as the picture's frame sets them aside, and put back.
+     */
+    private void readForFar() {
+        leftBefore("reading sprite colours for the far land");
+        int program = bound(GL_CURRENT_PROGRAM);
+        int vertexArray = bound(GL_VERTEX_ARRAY_BINDING), arrayBuffer = bound(GL_ARRAY_BUFFER_BINDING), unpackBuffer = bound(GL_PIXEL_UNPACK_BUFFER_BINDING);
+        int unit = bound(GL_ACTIVE_TEXTURE);
+        GL13.glActiveTexture(GL_TEXTURE0);
+        int sampler = bound(GL_SAMPLER_BINDING);
+        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);
+        GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+        int rowLength = bound(GL_PACK_ROW_LENGTH), skipRows = bound(GL_PACK_SKIP_ROWS), skipPixels = bound(GL_PACK_SKIP_PIXELS), alignment = bound(GL_PACK_ALIGNMENT);
+        try {
+            FarLand far = view.worldScene.farLand;
+            SpriteColours.read(view.index, far.tendedX, far.tendedY);
+        } catch (VideoMemory.Refused refused) {
+            // As for a frame refused: the picture is drawn with less, and the sheet is read on a later call.
+            if (!makeRoom(refused.getMessage())) {
+                throw refused;
+            }
+        } finally {
+            GL11.glPixelStorei(GL_PACK_ROW_LENGTH, rowLength);
+            GL11.glPixelStorei(GL_PACK_SKIP_ROWS, skipRows);
+            GL11.glPixelStorei(GL_PACK_SKIP_PIXELS, skipPixels);
+            GL11.glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+            GL33.glBindSampler(0, sampler);
+            GL15.glBindBuffer(GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
+            GL15.glBindBuffer(GL_ARRAY_BUFFER, arrayBuffer);
+            GL30.glBindVertexArray(vertexArray);
+            GL13.glActiveTexture(unit);
+            Program.useOther(program);
+        }
+    }
 
     /**
      * Queued on frames that draw no picture while first person is being got ready: makes the

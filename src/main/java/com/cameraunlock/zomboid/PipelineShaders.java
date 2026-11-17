@@ -9083,6 +9083,8 @@ final class PipelineShaders {
             varying vec3 vNormal;
             varying vec4 vColor;
             varying float vUp;
+            varying float vAlong;
+            varying float vWindows;
             uniform vec3 uEye;
 
             void main() {
@@ -9090,6 +9092,8 @@ final class PipelineShaders {
                 vNormal = gl_Normal;
                 vColor = gl_Color;
                 vUp = gl_MultiTexCoord0.x;
+                vAlong = gl_MultiTexCoord0.y;
+                vWindows = gl_MultiTexCoord0.z;
                 gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * vec4(gl_Vertex.xyz - uEye, 1.0);
             }
             """;
@@ -9155,6 +9159,8 @@ final class PipelineShaders {
             varying vec3 vNormal;
             varying vec4 vColor;
             varying float vUp;
+            varying float vAlong;
+            varying float vWindows;
             uniform sampler2D uPicture;
             // Tiles a side of the picture, which comes round again that often.
             uniform float uPictureSide;
@@ -9185,19 +9191,41 @@ final class PipelineShaders {
                     float uneven = patches(vWorld.xy * 0.9) * 0.6 + patches(vWorld.xy * 3.7 + 11.0) * 0.4 - 0.5;
                     surface *= 1.0 + 0.3 * uneven * (1.0 - water) * (1.0 - smoothstep(0.15, 0.6, fine));
                     surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * (1.0 - water));
-                } else if (n.z > 0.5) {
+                } else if (vColor.a > 0.999) {
+                    // A roof, flat or pitched. Snow lies on it as it slopes less.
                     surface = pow(vColor.rgb, vec3(2.2)) * (0.9 + 0.2 * patches(vWorld.xy * 0.7));
-                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0));
+                    surface = mix(surface, pow(vec3(0.82, 0.845, 0.89), vec3(2.2)), min(uSnowLying * 2.0, 1.0) * smoothstep(0.5, 0.9, n.z));
                 } else {
-                    // A wall, with a window to each bay of two tiles on every floor. Too far off to
-                    // tell one window from the next, a wall is the colour all of it comes to.
-                    float along = dot(vWorld.xy, vec2(-n.y, n.x)) * 0.5;
-                    float up = vUp / uStorey;
-                    float bay = fract(along), storey = fract(up);
-                    float pane = step(0.22, bay) * step(bay, 0.78) * step(0.3, storey) * step(storey, 0.74) * step(0.0, vUp);
-                    float fine = max(fwidth(along), fwidth(up));
-                    pane = mix(pane, 0.56 * 0.44 * step(0.0, vUp), smoothstep(0.2, 0.55, fine));
-                    surface = mix(pow(vColor.rgb, vec3(2.2)), vec3(0.03, 0.04, 0.05), 0.85 * pane);
+                    // A wall, with a window on every floor of each tile whose bit is set in
+                    // vWindows, counted along the wall from its start. Too far off to tell one
+                    // window from the next, a wall is the colour all of it comes to, which alpha
+                    // says by how many of its tiles have one.
+                    // A wall whose windows are FarCells.BAYS has one to each bay of two tiles.
+                    float up = vUp / uStorey, storey = fract(up), pane, fine, far, dark;
+                    if (vWindows < -0.5) {
+                        float along = dot(vWorld.xy, vec2(-n.y, n.x)) * 0.5;
+                        float bay = fract(along);
+                        pane = step(0.22, bay) * step(bay, 0.78) * step(0.3, storey) * step(storey, 0.74);
+                        fine = max(fwidth(along), fwidth(up));
+                        far = 0.56 * 0.44;
+                        dark = 0.85;
+                    } else {
+                        float tile = clamp(floor(vAlong), 0.0, 15.0);
+                        // Half a step over the mask keeps a bit read whole where exp2 is not exact.
+                        float glazed = mod(floor((floor(vWindows + 0.5) + 0.5) / exp2(tile)), 2.0);
+                        float part = fract(vAlong);
+                        fine = max(fwidth(vAlong), fwidth(up));
+                        // A window a hundred tiles off is a few dots: it is drawn a little larger
+                        // as it goes, so that it still reads as a window and not as dirt.
+                        float grow = smoothstep(0.03, 0.15, fine);
+                        float side = mix(0.3, 0.38, grow), sill = mix(0.3, 0.24, grow), head = mix(0.74, 0.8, grow);
+                        pane = glazed * step(0.5 - side, part) * step(part, 0.5 + side) * step(sill, storey) * step(storey, head);
+                        far = (vColor.a * 255.0 - 128.0) / 126.0 * 2.0 * side * (head - sill);
+                        dark = 0.92;
+                    }
+                    pane *= step(0.0, vUp);
+                    pane = mix(pane, far * step(0.0, vUp), smoothstep(0.2, 0.55, fine));
+                    surface = mix(pow(vColor.rgb, vec3(2.2)), vec3(0.03, 0.04, 0.05), dark * pane);
                 }
                 gl_FragColor = vec4(farLit(vWorld, n, surface, water), 1.0);
             }

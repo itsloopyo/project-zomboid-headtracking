@@ -92,6 +92,9 @@ final class Lotpack {
             return 0;
         }
         next();
+        if (held - 1 > in.remaining() / 4) {
+            throw new Malformed("the lotpack lays " + (held - 1) + " tiles on a square of chunk " + cx + ", " + cy + ", more than the " + in.remaining() + " bytes after it hold");
+        }
         return held - 1;
     }
 

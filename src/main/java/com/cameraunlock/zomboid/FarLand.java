@@ -4,12 +4,15 @@ import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -70,7 +73,7 @@ final class FarLand {
     /** How many cells a frame are handed to the graphics card: each is a third of a megabyte of picture. */
     private static final int LANDED_A_FRAME = 2;
 
-    private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_UNSIGNED_BYTE = 0x1401, GL_FLOAT = 0x1406;
+    private static final int GL_TEXTURE_2D = 0x0DE1, GL_RGBA = 0x1908, GL_RGBA8 = 0x8058, GL_BYTE = 0x1400, GL_UNSIGNED_BYTE = 0x1401, GL_FLOAT = 0x1406;
     private static final int GL_TEXTURE_MIN_FILTER = 0x2801, GL_TEXTURE_MAG_FILTER = 0x2800, GL_TEXTURE_WRAP_S = 0x2802, GL_TEXTURE_WRAP_T = 0x2803;
     private static final int GL_LINEAR = 0x2601, GL_LINEAR_MIPMAP_LINEAR = 0x2703, GL_REPEAT = 0x2901, GL_TEXTURE_MAX_LEVEL = 0x813D;
     private static final int GL_ARRAY_BUFFER = 0x8892, GL_STATIC_DRAW = 0x88E4, GL_TRIANGLES = 0x0004, GL_TRIANGLE_STRIP = 0x0005;
@@ -87,6 +90,8 @@ final class FarLand {
     private static final class Asked {
         /** The cell each place of the window was last asked to hold. Set by the logic thread, read by the render thread. */
         final AtomicLongArray cells = new AtomicLongArray(WINDOW * WINDOW);
+        /** The cell each place was last asked for with every colour of its tiles in: see FarTiles.Cell.whole. Logic thread. */
+        final AtomicLongArray whole = new AtomicLongArray(WINDOW * WINDOW);
         /** How many cells are asked for and not yet handed to the graphics card. */
         final AtomicInteger waiting = new AtomicInteger();
         /** What stopped the far land, once anything has. */
@@ -97,10 +102,16 @@ final class FarLand {
         volatile long since;
         /** Whether it has been said that every cell round the eye is on the graphics card. Render thread only. */
         boolean wholeSaid;
+        /** Whether the cells are made with what the map lays on them (Part.FAR_LAND_DETAIL). */
+        final boolean detailed;
+        /** Whether it has been said that every cell round the eye is asked for with every colour of its tiles. Logic thread only. */
+        boolean colouredSaid;
 
-        Asked() {
+        Asked(boolean detailed) {
+            this.detailed = detailed;
             for (int place = 0; place < WINDOW * WINDOW; place++) {
                 cells.set(place, NONE);
+                whole.set(place, NONE);
             }
         }
     }
@@ -114,7 +125,7 @@ final class FarLand {
     /** Logic thread, read by the render thread: the kinds of the far trees in this save, or null where it has none. */
     static volatile FarTreeKinds treeKinds;
     /** Replaced by the logic thread, read by all three. */
-    private volatile Asked asked = new Asked();
+    private volatile Asked asked = new Asked(true);
     /** What was asked for and the cell it was asked round, once every cell kept round it is on the graphics card: see whole. */
     private record Whole(Asked asked, long round) {}
     /** Set by the render thread, read by the logic thread. */
@@ -123,6 +134,8 @@ final class FarLand {
     private record Near(Asked asked, long round, int on) {}
     /** Set by the render thread, read by the logic thread. */
     private volatile Near near;
+    /** Where the eye was when the far land was last tended, NaN before: set by the logic thread. */
+    volatile float tendedX = Float.NaN, tendedY = Float.NaN;
     /** The cells load draws by: the eye's own and the eight round it, the first of NEAREST_FIRST. */
     static final int ROUND = 9;
     private final ConcurrentLinkedQueue<Made> made = new ConcurrentLinkedQueue<>();
@@ -196,7 +209,12 @@ final class FarLand {
      * Logic thread, each frame the picture is built from the eye of someone standing in the
      * world: asks for whichever cells round the eye are not yet asked for, the nearest first.
      */
-    void tend(float eyeX, float eyeY) {
+    void tend(int view, float eyeX, float eyeY) {
+        tendedX = eyeX;
+        tendedY = eyeY;
+        if (this.asked.detailed != Part.FAR_LAND_DETAIL.on()) {
+            forget();
+        }
         Asked asked = this.asked;
         if (asked.failure != null) {
             return;
@@ -221,21 +239,48 @@ final class FarLand {
             asked.since = System.nanoTime();
         }
         asked.round = key(eyeCellX, eyeCellY);
+        FarTiles.keepRound(view, eyeCellX, eyeCellY, AROUND);
         for (int step = 0; step < NEAREST_FIRST.length && asked.waiting.get() < WAITING_AT_ONCE; step += 2) {
             int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
             long cell = key(cellX, cellY);
             int place = place(cellX, cellY);
-            if (asked.cells.get(place) == cell) {
+            boolean held = asked.cells.get(place) == cell;
+            if (held && (asked.whole.get(place) == cell || !FarTiles.whole(cellX, cellY))) {
                 continue;
+            }
+            FarTiles.Cell tiles = null;
+            if (asked.detailed) {
+                // Asked from the cell's middle, so that what the built world round the eye asks for is read first.
+                SpriteColours.askingFrom(view, (cellX + 0.5f) * FarCells.CELL, (cellY + 0.5f) * FarCells.CELL);
+                tiles = FarTiles.cell(cellX, cellY);
+                SpriteColours.askingFrom(view, Float.NaN, Float.NaN);
             }
             int[] buildings = buildings(IsoWorld.instance.getMetaGrid(), cellX, cellY);
             List<Source> from = sources;
             FarTreeKinds kinds = treeKinds;
             FarTrees.Lot lot = kinds == null ? null : FarTrees.lot(cellX, cellY);
             asked.cells.set(place, cell);
+            // A cell made while colours of its tiles were still being read is made again once they are in.
+            asked.whole.set(place, tiles == null || tiles.whole() ? cell : NONE);
             asked.waiting.incrementAndGet();
-            WORKER.execute(() -> make(asked, from, cellX, cellY, buildings, kinds, lot));
+            FarTiles.Cell tilesMade = tiles;
+            WORKER.execute(() -> make(asked, from, cellX, cellY, buildings, kinds, lot, tilesMade));
         }
+        if (asked.detailed && !asked.colouredSaid && wholeRound(asked, eyeCellX, eyeCellY)) {
+            asked.colouredSaid = true;
+            Log.info(String.format(Locale.ROOT, "far land: all %d cells round the viewer are asked for with the colours of every tile they lay, %.0f ms after the first was asked for",
+                    NEAREST_FIRST.length / 2, (System.nanoTime() - asked.since) / 1e6));
+        }
+    }
+
+    private static boolean wholeRound(Asked asked, int eyeCellX, int eyeCellY) {
+        for (int step = 0; step < NEAREST_FIRST.length; step += 2) {
+            int cellX = eyeCellX + NEAREST_FIRST[step], cellY = eyeCellY + NEAREST_FIRST[step + 1];
+            if (asked.whole.get(place(cellX, cellY)) != key(cellX, cellY)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** The pictures of the map this save is played on, the first to be asked the one the game itself puts first. */
@@ -348,7 +393,7 @@ final class FarLand {
     }
 
     /** The cells' thread: makes a cell and hands it over, or stops the far land and says why. */
-    private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings, FarTreeKinds kinds, FarTrees.Lot lot) {
+    private void make(Asked asked, List<Source> from, int cellX, int cellY, int[] buildings, FarTreeKinds kinds, FarTrees.Lot lot, FarTiles.Cell tiles) {
         OffHeap.Block block = null;
         try {
             int[][] around = new int[9][];
@@ -373,15 +418,16 @@ final class FarLand {
                     around[(j + 1) * 3 + i + 1] = known;
                 }
             }
-            ByteBuffer blocks = FarCells.blocks(buildings, around, cellX, cellY);
+            FarLot laid = tiles == null ? null : laid(tiles, cellX, cellY);
+            ByteBuffer blocks = FarCells.blocks(buildings, around, cellX, cellY, laid);
             ByteBuffer treesMade = lot == null ? ByteBuffer.allocate(0) : FarTrees.make(kinds, lot, cellX, cellY, around);
             int land = FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES;
             block = OffHeap.take(FarCells.PICTURE_BYTES + land + blocks.remaining() + treesMade.remaining());
             ByteBuffer bytes = block.bytes;
             bytes.clear();
-            FarCells.picture(pixels, bytes);
+            FarCells.picture(pixels, laid == null ? null : laid.ground, bytes);
             FarCells.land(around, cellX, cellY, bytes);
-            int vertices = blocks.remaining() / FarCells.VERTEX_BYTES;
+            int vertices = blocks.remaining() / FarCells.BLOCK_BYTES;
             bytes.put(blocks);
             int treeCount = treesMade.remaining() / FarTrees.TREE_BYTES;
             bytes.put(treesMade);
@@ -398,6 +444,31 @@ final class FarLand {
                 throw error;
             }
         }
+    }
+
+    /** The cells' thread only: the lotpacks that could not be read, each said in the log once a map. */
+    private static final HashSet<Path> unreadLots = new HashSet<>();
+
+    /** What the cell's lotpack lays, or null where it cannot be read, which the game loads empty and the far land takes the map's picture for. */
+    private static FarLot laid(FarTiles.Cell tiles, int cellX, int cellY) {
+        ArrayList<Lotpack.Malformed> skipped = new ArrayList<>();
+        FarLot laid;
+        try (FileChannel channel = FileChannel.open(tiles.pack(), StandardOpenOption.READ)) {
+            if (channel.size() > Integer.MAX_VALUE) {
+                throw new IOException("it is " + channel.size() + " bytes, past the most a buffer can map");
+            }
+            laid = FarLot.read(channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size()), tiles.traits(), tiles.colours(), tiles.minLevel(), tiles.maxLevel(), skipped);
+        } catch (IOException | Lotpack.Malformed unreadable) {
+            if (unreadLots.add(tiles.pack())) {
+                Log.error("far land: " + tiles.pack() + " could not be read, so cell " + cellX + ", " + cellY + " is drawn in the colours of the game's map: " + unreadable);
+            }
+            return null;
+        }
+        if (!skipped.isEmpty() && unreadLots.add(tiles.pack())) {
+            Log.error("far land: " + skipped.size() + " chunks of " + tiles.pack() + " could not be read, and cell " + cellX + ", " + cellY
+                    + " has the colours of the game's map on them, as the game loads them empty. The first: " + skipped.get(0).getMessage());
+        }
+        return laid;
     }
 
     /** The picture of a cell, a row of tiles at a time, or null where no picture of the map has it. */
@@ -464,7 +535,10 @@ final class FarLand {
      * card's share is catchUp's.
      */
     void forget() {
-        asked = new Asked();
+        asked = new Asked(Part.FAR_LAND_DETAIL.on());
+        if (!asked.detailed) {
+            FarTiles.stopWaiting();
+        }
     }
 
     /**
@@ -563,8 +637,10 @@ final class FarLand {
         sources = List.of();
         treeKinds = null;
         FarTreeLooks.forget();
+        FarTiles.forget();
         WORKER.execute(() -> {
             waters.clear();
+            unreadLots.clear();
             FarTrees.forget();
             for (ZipFile file : open.values()) {
                 try {
@@ -708,7 +784,8 @@ final class FarLand {
         GL11.glBindTexture(GL_TEXTURE_2D, 0);
         // The boxes are read before the uploads below move the limit: picture leaves it at the end of the picture.
         bytes.clear();
-        int end = FarCells.PICTURE_BYTES + (FarCells.LAND_VERTICES + cell.blockVertices) * FarCells.VERTEX_BYTES;
+        int end = FarCells.PICTURE_BYTES + FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES + cell.blockVertices * FarCells.BLOCK_BYTES;
+        // A vertex of the land and one of a building both begin with their place: one stride reads both while they are the same size.
         box(bytes, FarCells.PICTURE_BYTES, FarCells.LAND_VERTICES + cell.blockVertices, FarCells.VERTEX_BYTES, landBoxes, place * 6);
         if (cell.trees > 0) {
             box(bytes, end, cell.trees, FarTrees.TREE_BYTES, treeBoxes, place * 6);
@@ -821,7 +898,12 @@ final class FarLand {
             GL11.glTexCoordPointer(1, GL_FLOAT, FarCells.VERTEX_BYTES, 28L);
             GL11.glDrawArrays(GL_TRIANGLE_STRIP, 0, FarCells.LAND_VERTICES);
             if (blockVertices[place] > 0) {
-                GL11.glDrawArrays(GL_TRIANGLES, FarCells.LAND_VERTICES, blockVertices[place]);
+                long blocks = (long) FarCells.LAND_VERTICES * FarCells.VERTEX_BYTES;
+                GL11.glVertexPointer(3, GL_FLOAT, FarCells.BLOCK_BYTES, blocks);
+                GL11.glNormalPointer(GL_BYTE, FarCells.BLOCK_BYTES, blocks + 12L);
+                GL11.glColorPointer(4, GL_UNSIGNED_BYTE, FarCells.BLOCK_BYTES, blocks + 16L);
+                GL11.glTexCoordPointer(3, GL_FLOAT, FarCells.BLOCK_BYTES, blocks + 20L);
+                GL11.glDrawArrays(GL_TRIANGLES, 0, blockVertices[place]);
             }
         }
         GL15.glBindBuffer(GL_ARRAY_BUFFER, 0);

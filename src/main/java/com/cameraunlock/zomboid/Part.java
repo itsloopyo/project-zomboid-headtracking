@@ -57,6 +57,11 @@ enum Part {
             "true: in first person, vehicles, zombies and animals in sight are drawn even past the edge of the game's own\n"
                     + "screen, and so are other players where players cannot fight. false: each is drawn only where the game's own\n"
                     + "view would show it."),
+    FAR_LAND_DETAIL("FirstPerson", "FarLandDetail", true, false,
+            "true: in first person, the land past the edge of the loaded map takes its colours from what the map lays there:\n"
+                    + "each square the colour of its floor, road, pavement, grass or sand, and each building its own walls' and roof's\n"
+                    + "colours, its windows where the map has windows, and its roof pitched where the map's roof slopes. false: the land\n"
+                    + "there is the colours of the game's map, and its buildings are blocks in a few plain colours with flat roofs."),
     MODDED_VEHICLE_INTERIORS("FirstPerson", "ModdedVehicleInteriors", true, false,
             "true: in first person, from the seat of a vehicle a mod adds, the dashboard, steering wheel and seats the mod puts\n"
                     + "in it are drawn, the windows it adds as parts of their own are left out so you see out through them, and the\n"
