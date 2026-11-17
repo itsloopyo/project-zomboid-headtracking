@@ -131,6 +131,7 @@ public final class Tests {
         Checks.run("aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt", Tests::aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt);
         Checks.run("onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName", Tests::onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName);
         Checks.run("onLinuxTheHotkeysHearTheKeysTheGameRead", Tests::onLinuxTheHotkeysHearTheKeysTheGameRead);
+        Checks.run("onLinuxTheHotkeysHearTheMouseButtons", Tests::onLinuxTheHotkeysHearTheMouseButtons);
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
@@ -3248,22 +3249,47 @@ public final class Tests {
                 "a key is up until a reading says otherwise, and a code past 255 is never down");
         gameDown.add(pageUp);
         gameDown.add(leftShift);
-        check(!LinuxKeys.read(gameDown::contains, now), "the first reading after the keys were let go does not follow on");
+        check(!LinuxKeys.read(gameDown::contains, NO_BUTTON, now), "the first reading after the keys were let go does not follow on");
         check(LinuxKeys.down(0x21) && LinuxKeys.down(0x10) && LinuxKeys.down(0xA0) && !LinuxKeys.down(0xA1),
                 "a key core asked about is down once the game reads it down, and Shift is read before core first asks about it, so a"
                         + " chord's first press has it");
         gameDown.remove(leftShift);
-        LinuxKeys.read(gameDown::contains, now += frame);
+        LinuxKeys.read(gameDown::contains, NO_BUTTON, now += frame);
         gameDown.add(leftShift);
-        check(LinuxKeys.read(gameDown::contains, now += frame) && LinuxKeys.down(0x10) && LinuxKeys.down(0x21),
+        check(LinuxKeys.read(gameDown::contains, NO_BUTTON, now += frame) && LinuxKeys.down(0x10) && LinuxKeys.down(0x21),
                 "the next frame's reading follows on, and Shift is down for the left Shift");
         gameDown.clear();
-        check(!LinuxKeys.read(gameDown::contains, now += LinuxKeys.LONGEST_GAP_NANOS + 1) && !LinuxKeys.down(0x21),
+        check(!LinuxKeys.read(gameDown::contains, NO_BUTTON, now += LinuxKeys.LONGEST_GAP_NANOS + 1) && !LinuxKeys.down(0x21),
                 "a reading after a long frame does not follow on, so what core heard across it is dropped");
         gameDown.add(pageUp);
-        LinuxKeys.read(gameDown::contains, now += frame);
+        LinuxKeys.read(gameDown::contains, NO_BUTTON, now += frame);
         LinuxKeys.letGo();
         check(!LinuxKeys.down(0x21), "a save left lets every key go");
+    }
+
+    private static final java.util.function.IntPredicate NO_BUTTON = button -> false;
+
+    /** A mouse button in a key row, written as its Windows virtual-key code, is heard on Linux from the game's mouse. */
+    private static void onLinuxTheHotkeysHearTheMouseButtons() {
+        java.util.Set<Integer> buttonsDown = new java.util.HashSet<>();
+        long now = 2_000_000_000L, frame = TimeUnit.MILLISECONDS.toNanos(16);
+        LinuxKeys.letGo();
+        check(!LinuxKeys.down(0x04) && !LinuxKeys.down(0x06) && !LinuxKeys.down(0x01) && !LinuxKeys.down(0x02) && !LinuxKeys.down(0x05),
+                "a mouse button is up until a reading says otherwise");
+        buttonsDown.add(2);
+        LinuxKeys.read(key -> false, buttonsDown::contains, now);
+        check(LinuxKeys.down(0x04) && !LinuxKeys.down(0x01) && !LinuxKeys.down(0x02), "the middle button, the game's 2, is 0x04, and left and right stay up");
+        buttonsDown.clear();
+        buttonsDown.add(0);
+        buttonsDown.add(1);
+        buttonsDown.add(4);
+        LinuxKeys.read(key -> false, buttonsDown::contains, now += frame);
+        check(LinuxKeys.down(0x01) && LinuxKeys.down(0x02) && LinuxKeys.down(0x06) && !LinuxKeys.down(0x04) && !LinuxKeys.down(0x05),
+                "left is 0x01, right 0x02 and the second side button 0x06");
+        LinuxKeys.down(0x03);
+        LinuxKeys.read(key -> true, button -> true, now += frame);
+        check(!LinuxKeys.down(0x03), "and 0x03, Ctrl+Break, is no mouse button and no key the game reads");
+        LinuxKeys.letGo();
     }
 
     private static void aKeyChosenOnTheOptionsScreenIsWrittenAsTheFileSpellsIt() {
