@@ -3340,7 +3340,7 @@ public final class Tests {
         String firstPerson = Config.DEFAULT_KEYS.get("FirstPersonKey"), quality = Config.DEFAULT_KEYS.get("CycleQualityKey");
         int delete = 211, f9 = 67;
         check(KeyNames.shown(firstPerson).equals(new KeyNames.Binding(delete, false, false, false))
-                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson).contains("CameraUnlock.ini holds Delete or Scroll Lock or Ctrl+Shift+B"),
+                        && OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson).contains("CameraUnlock.ini holds Delete or Scroll Lock"),
                 "the first person key's three show as Delete, with its tip naming all three: "
                         + OptionsLayout.keyTip(OptionsLayout.KEY_ROWS[0], firstPerson));
         check(KeyNames.shown(quality).equals(new KeyNames.Binding(f9, false, false, false))

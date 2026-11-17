@@ -488,7 +488,7 @@ final class OptionsPage {
                 KeyNames.Binding chosen = new KeyNames.Binding((int) (double) (Double) element.rawget("keyCode"), Boolean.TRUE.equals(element.rawget("shift")),
                         Boolean.TRUE.equals(element.rawget("ctrl")), Boolean.TRUE.equals(element.rawget("alt")));
                 if (!chosen.equals(key.shown)) {
-                    // The page holds one key a row, so Default puts back the row's whole list, Delete, ScrollLock, Ctrl+Shift+B for FirstPersonKey.
+                    // The page holds one key a row, so Default puts back the row's whole list, Delete, ScrollLock for FirstPersonKey.
                     String defaults = Config.DEFAULT_KEYS.get(key.row.id());
                     String keys = chosen.equals(KeyNames.shown(defaults)) ? defaults : KeyNames.text(chosen);
                     Tracking.applyKeys(key.row.id(), keys);

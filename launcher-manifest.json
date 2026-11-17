@@ -15,7 +15,7 @@
       "CycleTrackingModeKey": "PageUp",
       "YawModeKey": "PageDown",
       "TrueFreeLookKey": "Insert",
-      "FirstPersonKey": "Delete, ScrollLock, Ctrl+Shift+B"
+      "FirstPersonKey": "Delete, ScrollLock"
     }
   },
 

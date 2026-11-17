@@ -315,9 +315,9 @@ public final class CoreTests {
                         && Integer.bitCount(Config.CYCLE_TRACKING_MODE | Config.YAW_MODE | Config.AIM_MODE | Config.CYCLE_QUALITY
                                 | Config.CYCLE_STYLE | Config.SPLIT_SCREEN | firstPersonTaps | Config.FIRST_PERSON_ALL) == 11,
                 "the six actions have a bit each, and the first person key one for each player tapped and one held");
-        check(holds("FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B") && holds("CycleQualityKey=F9, Pause")
+        check(holds("FirstPersonKey=Delete, ScrollLock") && holds("CycleQualityKey=F9, Pause")
                         && !text().contains("BesideViewpoint"),
-                "the first person key is Delete, Scroll Lock or Ctrl+Shift+B and the graphics mode key F9 or Pause, with no rows"
+                "the first person key is Delete or Scroll Lock and the graphics mode key F9 or Pause, with no rows"
                         + " of their own beside Viewpoint");
     }
 
@@ -698,7 +698,7 @@ public final class CoreTests {
         check(Style.of(0) == styleWas && !Tracking.firstPersonRemembered(0) && SplitScreen.row() == SplitScreen.HORIZONTAL
                         && saved("Style=" + styleWas.label, "FirstPerson=false", "SplitScreen=Horizontal"),
                 "and set back by the keys, they are saved as they were");
-        check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B"), "and rows no action saves are as they were");
+        check(holds("UdpPort=default") && holds("CycleTrackingModeKey=PageUp") && holds("YawModeKey=PageDown") && holds("TrueFreeLookKey=Insert") && !text().contains("ToggleKey") && holds("FirstPersonKey=Delete, ScrollLock"), "and rows no action saves are as they were");
     }
 
     /** The session is in stock sights here. */
@@ -790,7 +790,7 @@ public final class CoreTests {
      */
     private static void aFileWithTheOldKeysTakesTheNewOnes() throws IOException, InterruptedException {
         String saved = text();
-        String row = "FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B", qualityRow = "CycleQualityKey=F9, Pause";
+        String row = "FirstPersonKey=Delete, ScrollLock", qualityRow = "CycleQualityKey=F9, Pause";
         check(saved.contains("\r\n" + row + "\r\n") && saved.contains("\r\n" + qualityRow + "\r\n"), "the file holds the keys the mod comes with");
         edit(saved.replace(row, "FirstPersonKey=Delete\r\nFirstPersonKeyBesideViewpoint=ScrollLock")
                 .replace(qualityRow, "CycleQualityKey=F9\r\nCycleQualityKeyBesideViewpoint=Home"));
@@ -798,10 +798,15 @@ public final class CoreTests {
         check(next.contains(Config.FILE_NAME + ": read") && next.contains("FirstPersonKeyBesideViewpoint is not a setting this mod reads, so it is ignored")
                         && next.contains("CycleQualityKeyBesideViewpoint is not a setting this mod reads, so it is ignored"),
                 "a file with the rows beside Viewpoint is read, and those rows are said to be left alone: " + next);
-        check(next.contains("FirstPersonKey \"Delete, ScrollLock, Ctrl+Shift+B\" in place of \"Delete\", the keys the mod used to come with saved")
+        check(next.contains("FirstPersonKey \"Delete, ScrollLock\" in place of \"Delete\", the keys the mod used to come with saved")
                         && next.contains("CycleQualityKey \"F9, Pause\" in place of \"F9\", the keys the mod used to come with saved")
                         && holds(row) && holds(qualityRow),
-                "and Delete alone is saved as Delete, Scroll Lock or Ctrl+Shift+B, and F9 alone as F9 or Pause: " + next);
+                "and Delete alone is saved as Delete or Scroll Lock, and F9 alone as F9 or Pause: " + next);
+        edit(saved.replace(row, "FirstPersonKey=Delete, ScrollLock, Ctrl+Shift+B"));
+        next = nextStart("keys-with-the-crafting-chord");
+        check(next.contains("FirstPersonKey \"Delete, ScrollLock\" in place of \"Delete, ScrollLock, Ctrl+Shift+B\", the keys the mod used to come with saved")
+                        && holds(row),
+                "and 0.6.0's Ctrl+Shift+B, which the game also opens the crafting window on, is dropped: " + next);
         edit(saved.replace(qualityRow, "CycleQualityKey=F9, Ctrl+Shift+J"));
         next = nextStart("keys-with-the-chord");
         check(next.contains("CycleQualityKey \"F9, Pause\" in place of \"F9, Ctrl+Shift+J\", the keys the mod used to come with saved") && holds(qualityRow),
@@ -1035,15 +1040,15 @@ public final class CoreTests {
     }
 
     private static void firstPersonAndGraphicsModeSwitchOnTheirOtherKeysBesideViewpoint() throws IOException {
-        check(Tracking.heardKeys("FirstPersonKey").equals("Delete, ScrollLock, Ctrl+Shift+B") && Tracking.heardKeys("CycleQualityKey").equals("F9, Pause"),
-                "with no Project Viewpoint first person switches on Delete, Scroll Lock or Ctrl+Shift+B and the graphics mode on F9 or"
+        check(Tracking.heardKeys("FirstPersonKey").equals("Delete, ScrollLock") && Tracking.heardKeys("CycleQualityKey").equals("F9, Pause"),
+                "with no Project Viewpoint first person switches on Delete or Scroll Lock and the graphics mode on F9 or"
                         + " Pause");
         Tracking.viewpointStarted();
         String log = Files.readString(game.resolve(Log.FILE_NAME));
-        check(Tracking.heardKeys("FirstPersonKey").equals("ScrollLock, Ctrl+Shift+B") && Tracking.heardKeys("CycleQualityKey").equals("Pause")
+        check(Tracking.heardKeys("FirstPersonKey").equals("ScrollLock") && Tracking.heardKeys("CycleQualityKey").equals("Pause")
                         && Tracking.heardKeys("CycleStyleKey").equals("F8") && log.contains("Project Viewpoint is running")
                         && log.contains("Delete, F9 left out of every key list"),
-                "once Viewpoint starts, the hint and the options page name Scroll Lock, Ctrl+Shift+B and Pause, with core leaving Delete and F9 out"
+                "once Viewpoint starts, the hint and the options page name Scroll Lock and Pause, with core leaving Delete and F9 out"
                         + " and the log saying why: " + Tracking.heardKeys("FirstPersonKey") + ", " + Tracking.heardKeys("CycleQualityKey"));
         check(Tracking.withoutKeys("Ctrl+Delete, F5, delete, Alt+F9, F10", "Delete, F9").equals("F5, F10")
                         && Tracking.withoutKeys("Delete", "Delete, F9").isEmpty(),

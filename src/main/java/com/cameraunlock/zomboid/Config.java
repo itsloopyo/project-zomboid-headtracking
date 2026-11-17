@@ -95,7 +95,7 @@ final class Config {
     private final int cycleQualityKey, cycleStyleKey, splitScreenKey;
     /** The keys each key list row comes with, by the row's key: core's four are the game's own per_game rows of cameraunlock-core. */
     static final Map<String, String> DEFAULT_KEYS = Map.of("CycleTrackingModeKey", "PageUp", "YawModeKey", "PageDown", "TrueFreeLookKey", "Insert",
-            "FirstPersonKey", "Delete, ScrollLock, Ctrl+Shift+B", "CycleQualityKey", "F9, Pause",
+            "FirstPersonKey", "Delete, ScrollLock", "CycleQualityKey", "F9, Pause",
             "CycleStyleKey", "F8", "SplitScreenKey", "F7");
     /** The mod's own key list rows, by key. Core's four, CycleTrackingModeKey, YawModeKey, TrueFreeLookKey and FirstPersonKey, are saved by their names. */
     private final Map<String, Integer> keyRows = new HashMap<>();
@@ -708,9 +708,10 @@ final class Config {
         CameraUnlock.Config loaded = core.configLoad(file, defaults);
         Log.info(file + ": " + LOAD_STATUS[loaded.status]);
         // Up to 0.5.0 the file held Delete alone for FirstPersonKey and F9 alone for CycleQualityKey, each with a row of its
-        // own for while Project Viewpoint runs, and a development build held F9 with Ctrl+Shift+J for CycleQualityKey. Core keeps
-        // no record of an upgrade made, so those lists are widened at every start: the options page saves the whole list for its
-        // Default, and only a file edited by hand holds one of them again.
+        // own for while Project Viewpoint runs, and a development build held F9 with Ctrl+Shift+J for CycleQualityKey. 0.6.0 came
+        // with Ctrl+Shift+B in FirstPersonKey, which opened the crafting window as well, since the game acts on its B binding
+        // whatever Shift, Ctrl or Alt is held. Core keeps no record of an upgrade made, so those lists are widened at every start:
+        // the options page saves the whole list for its Default, and only a file edited by hand holds one of them again.
         if (loaded.status == CameraUnlock.LOAD_CANONICAL) {
             for (Map.Entry<String, List<String>> old : OLD_KEYS.entrySet()) {
                 String held = keys(old.getKey());
@@ -731,7 +732,7 @@ final class Config {
     }
 
     /** The keys a row came with before, by the row's key, for the rows that come with more now. */
-    private static final Map<String, List<String>> OLD_KEYS = Map.of("FirstPersonKey", List.of("Delete"),
+    private static final Map<String, List<String>> OLD_KEYS = Map.of("FirstPersonKey", List.of("Delete", "Delete, ScrollLock, Ctrl+Shift+B"),
             "CycleQualityKey", List.of("F9", "F9, Ctrl+Shift+J"));
 
     /** What the screen last said about the file, and how many times it has had something to say. */
