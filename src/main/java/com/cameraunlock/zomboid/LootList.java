@@ -40,8 +40,11 @@ final class LootList<T> {
     /** A weight to two places, with no trailing zeros. */
     static String round(double weight) {
         String said = String.format(java.util.Locale.ROOT, "%.2f", Math.round(weight * 100.0) / 100.0);
-        said = said.replaceAll("0+$", "");
-        return said.endsWith(".") ? said.substring(0, said.length() - 1) : said;
+        int end = said.length();
+        while (said.charAt(end - 1) == '0') {
+            end--;
+        }
+        return said.substring(0, said.charAt(end - 1) == '.' ? end - 1 : end);
     }
 
     /** The rows of items, as the game's inventory pane groups them, by name. */
