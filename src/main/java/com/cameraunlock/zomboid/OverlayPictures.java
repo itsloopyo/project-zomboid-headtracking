@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import zombie.iso.ContainerOverlays;
 import zombie.iso.IsoObject;
+import zombie.iso.sprite.IsoSprite;
 
 /**
  * Which of ContainerOverlays' pictures the game paints over a container's square: the one of it holding many things or
@@ -41,10 +42,12 @@ final class OverlayPictures {
      * over a square too, a burnt wall's soot, a painted sign, a crafted station's look.
      */
     static Holding holding(IsoObject object) {
-        if (object.getOverlaySprite() == null) {
+        // Read once: the game takes the overlay off a container as it is emptied, while a build thread asks.
+        IsoSprite over = object.getOverlaySprite();
+        if (over == null) {
             return null;
         }
-        String painted = object.getOverlaySprite().getName();
+        String painted = over.getName();
         if (ContainerOverlays.instance.getUnderlyingSpriteNames(painted) == null) {
             return null;
         }
