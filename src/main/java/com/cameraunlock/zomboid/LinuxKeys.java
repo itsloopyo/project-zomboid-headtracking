@@ -63,22 +63,22 @@ final class LinuxKeys {
 
     static boolean read(IntPredicate gameKeyDown, long now) {
         long[] next = new long[4];
-        for (int virtualKey = 0; virtualKey < 256; virtualKey++) {
-            if ((asked.get(virtualKey >>> 6) & 1L << (virtualKey & 63)) == 0) {
-                continue;
-            }
-            int[] codes = KeyNames.codes(virtualKey);
-            if (codes == null) {
-                if (!said[virtualKey]) {
-                    said[virtualKey] = true;
-                    Log.info("hotkey key 0x" + Integer.toHexString(virtualKey).toUpperCase(Locale.ROOT) + " has no key in the game on "
-                            + System.getProperty("os.name") + ", so it never fires there");
+        for (int word = 0; word < next.length; word++) {
+            for (long left = asked.get(word); left != 0; left &= left - 1) {
+                int virtualKey = word << 6 | Long.numberOfTrailingZeros(left);
+                int[] codes = KeyNames.codes(virtualKey);
+                if (codes == null) {
+                    if (!said[virtualKey]) {
+                        said[virtualKey] = true;
+                        Log.info("hotkey key 0x" + Integer.toHexString(virtualKey).toUpperCase(Locale.ROOT) + " has no key in the game on "
+                                + System.getProperty("os.name") + ", so it never fires there");
+                    }
+                    continue;
                 }
-                continue;
-            }
-            for (int code : codes) {
-                if (gameKeyDown.test(code)) {
-                    next[virtualKey >>> 6] |= 1L << (virtualKey & 63);
+                for (int code : codes) {
+                    if (gameKeyDown.test(code)) {
+                        next[word] |= Long.lowestOneBit(left);
+                    }
                 }
             }
         }

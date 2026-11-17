@@ -21,7 +21,7 @@ final class KeyNames {
     private static final Map<Integer, String> NAMES = new HashMap<>();
     private static final Map<String, Integer> CODES = new HashMap<>();
     /** The game's codes of each Windows virtual-key code core may ask about, for LinuxKeys. */
-    private static final Map<Integer, int[]> BY_VIRTUAL_KEY = new HashMap<>();
+    private static final int[][] BY_VIRTUAL_KEY = new int[256][];
 
     static {
         for (int digit = 1; digit <= 9; digit++) {
@@ -120,24 +120,27 @@ final class KeyNames {
     }
 
     private static void key(int virtualKey, int code) {
-        int[] before = BY_VIRTUAL_KEY.getOrDefault(virtualKey, new int[0]);
-        int[] codes = java.util.Arrays.copyOf(before, before.length + 1);
-        codes[before.length] = code;
-        BY_VIRTUAL_KEY.put(virtualKey, codes);
+        int[] before = BY_VIRTUAL_KEY[virtualKey];
+        int[] codes = before == null ? new int[1] : java.util.Arrays.copyOf(before, before.length + 1);
+        codes[codes.length - 1] = code;
+        BY_VIRTUAL_KEY[virtualKey] = codes;
     }
 
     /** The game's codes of the key a Windows virtual-key code names, or null where the game has none that is the same key on every layout. */
     static int[] codes(int virtualKey) {
-        return BY_VIRTUAL_KEY.get(virtualKey);
+        return BY_VIRTUAL_KEY[virtualKey];
     }
 
     /** The Windows virtual-key code of a name a row can hold, for the test that holds this table to cameraunlock-core's keys.json. */
     static Map<String, Integer> virtualKeys() {
         Map<String, Integer> named = new HashMap<>();
-        for (Map.Entry<Integer, int[]> each : BY_VIRTUAL_KEY.entrySet()) {
-            for (int code : each.getValue()) {
+        for (int virtualKey = 0; virtualKey < BY_VIRTUAL_KEY.length; virtualKey++) {
+            if (BY_VIRTUAL_KEY[virtualKey] == null) {
+                continue;
+            }
+            for (int code : BY_VIRTUAL_KEY[virtualKey]) {
                 String name = NAMES.get(code);
-                if (name != null) named.put(name, each.getKey());
+                if (name != null) named.put(name, virtualKey);
             }
         }
         return named;
