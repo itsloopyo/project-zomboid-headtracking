@@ -68,7 +68,7 @@ final class Config {
      * rows as a bit a player, the HillHeight row, the MuzzleFlash row, the Crosshair row, the RegripTwoHandedWeapons row, the SplitScreen row, the rows of [Graphics], the TalkingMouths row
      * and each player's microphone.
      */
-    record Live(float fieldOfView, float mouseLookSpeed, float stickLookSpeed, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, int thirdPerson, int firstPersonInVehicles, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
+    record Live(float fieldOfView, float thirdPersonFieldOfView, float mouseLookSpeed, float stickLookSpeed, int own, int rules, int[] quality, int[] overheadQuality, int[] style, boolean spreadLightUpdates, int firstPerson, int thirdPerson, int firstPersonInVehicles, float hillHeight, boolean muzzleFlash, boolean crosshair, boolean regrip, int splitScreen,
             Quality.Picture custom, boolean talkingMouths, List<String> microphones, long parts) {}
 
     /** The keys of [Content], in the order of Own's bits. */
@@ -88,7 +88,7 @@ final class Config {
     static final int MIN_VIEW_DISTANCE = 32, MIN_DRAW_DISTANCE = 16;
 
     private final CameraUnlock core;
-    private final int fieldOfView, mouseLookSpeed, stickLookSpeed, spreadLightUpdates, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
+    private final int fieldOfView, thirdPersonFieldOfView, mouseLookSpeed, stickLookSpeed, spreadLightUpdates, hillHeight, muzzleFlash, crosshair, regrip, splitScreen, talkingMouths;
     /** By player, the rows of their first person graphics mode, their isometric view's and their picture style. */
     private final int[] quality = new int[View.COUNT], overheadQuality = new int[View.COUNT], style = new int[View.COUNT];
     private final int[] firstPerson = new int[View.COUNT], thirdPerson = new int[View.COUNT], firstPersonInVehicles = new int[View.COUNT];
@@ -196,6 +196,9 @@ final class Config {
         fieldOfView = localFloat("General", "FieldOfView",
                 "Vertical field of view of the first person view, in degrees: 40 to 110.",
                 writable | live, FieldOfView.DEFAULT_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
+        thirdPersonFieldOfView = localFloat("General", "ThirdPersonFieldOfView",
+                "Vertical field of view of the third person view, in degrees: 40 to 110.",
+                writable | live, FieldOfView.DEFAULT_BEHIND_DEGREES, MIN_FIELD_OF_VIEW, MAX_FIELD_OF_VIEW);
         mouseLookSpeed = localFloat("General", "MouseLookSpeed",
                 "How fast the mouse turns the first and third person view: 1 is the mod's own speed, 0.5 half as fast, 2 twice as\n"
                         + "fast, from " + LookSpeed.LEAST + " to " + LookSpeed.MOST + ". Your head's turns are your tracker's and do not change with it.",
@@ -549,6 +552,7 @@ final class Config {
 
         // Each put changes the running game alone: Tracking.applyScreen takes the patches in and logs what changed once for the lot.
         puts.put("FieldOfView", value -> FieldOfView.set((float) value));
+        puts.put("ThirdPersonFieldOfView", value -> FieldOfView.setBehind((float) value));
         puts.put("MouseLookSpeed", value -> LookSpeed.setMouse((float) value));
         puts.put("StickLookSpeed", value -> LookSpeed.setStick((float) value));
         for (int player = 0; player < View.COUNT; player++) {
@@ -778,7 +782,7 @@ final class Config {
         for (Part part : Part.values()) {
             partsOn |= core.configGetInt(parts[part.ordinal()]) != 0 ? part.bit() : 0;
         }
-        return new Live(core.configGetFloat(fieldOfView), core.configGetFloat(mouseLookSpeed), core.configGetFloat(stickLookSpeed), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, thirdPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
+        return new Live(core.configGetFloat(fieldOfView), core.configGetFloat(thirdPersonFieldOfView), core.configGetFloat(mouseLookSpeed), core.configGetFloat(stickLookSpeed), rows, changed, qualities, overheadQualities, styles, core.configGetInt(spreadLightUpdates) != 0, firstPersons, thirdPersons, inVehicles, core.configGetFloat(hillHeight), core.configGetInt(muzzleFlash) != 0, core.configGetInt(crosshair) != 0, core.configGetInt(regrip) != 0, core.configGetInt(splitScreen), picture(custom),
                 core.configGetInt(talkingMouths) != 0, List.of(microphones()), partsOn);
     }
 

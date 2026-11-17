@@ -297,8 +297,8 @@ public final class CoreTests {
         String start = started();
         check(start.contains("tracking idle mode rotation and position yaw about world up") && start.contains("Aim mode: sights locked"),
                 "with tracking on, rotation and position, yaw about straight up, sights locked: " + start);
-        check(start.endsWith("field of view 65.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending true"),
-                "65 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Bleak style, frame blending: "
+        check(start.endsWith("field of view 70.0 | own " + Own.described(Own.ALL) + " | graphics Automatic (High) | style Bleak | frame blending true"),
+                "70 degrees, everything of the mod's own on, the Automatic graphics mode in first person beginning at High, the Bleak style, frame blending: "
                         + start);
         check(Quality.overheadRow(0) == Quality.LOW && Quality.overheadPlain(0) && holds("IsometricQuality=Low"),
                 "and the isometric view in Low, the game's own picture");
@@ -1124,7 +1124,7 @@ public final class CoreTests {
     private static void rowsReadAgainWhileTheGameRuns() throws IOException, InterruptedException {
         Tracking.watchSettings();
         String saved = text();
-        String edited = saved.replace("FieldOfView=65.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
+        String edited = saved.replace("FieldOfView=70.0", "FieldOfView=90").replace("VanillaWeapons=false", "VanillaWeapons=true")
                 .replace("VanillaPlants=false", "VanillaPlants=true").replace("Quality=Medium", "Quality=High").replace("Style=Warm", "Style=Natural")
                 .replace("MuzzleFlash=true", "MuzzleFlash=false").replace("Crosshair=true", "Crosshair=false").replace("RegripTwoHandedWeapons=true", "RegripTwoHandedWeapons=false").replace("SpreadLightUpdates=true", "SpreadLightUpdates=false").replace("SplitScreen=Horizontal", "SplitScreen=Vertical").replace("UdpPort=default", "UdpPort=5555")
                 .replace("HillHeight=1.5", "HillHeight=0.25").replace("MouseLookSpeed=1.0", "MouseLookSpeed=0.5").replace("StickLookSpeed=1.0", "StickLookSpeed=2.5");
@@ -1150,7 +1150,7 @@ public final class CoreTests {
         check(!PendingLights.spread(), "and the light updates taken up in the frame the game relights them");
         edit(saved.replace("VanillaArms=false", "VanillaArms=true"));
         Tracking.watchSettings();
-        check(FieldOfView.degrees() == 65f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
+        check(FieldOfView.degrees() == 70f && Own.rows() == (Own.ALL & ~Own.ARMS) && Quality.name(0).equals("Medium") && Style.of(0) == Style.WARM
                         && MuzzleFlash.on() && Crosshair.on() && Regrip.on() && PendingLights.spread() && SplitScreen.row() == SplitScreen.HORIZONTAL && HillHeight.asked() == 1.5f
                         && LookSpeed.mouse() == 1f && LookSpeed.stick() == 1f
                         && Arrays.stream(Part.values()).allMatch(part -> part.running() == part.byDefault),
@@ -1159,7 +1159,7 @@ public final class CoreTests {
         check(Style.of(0) == Style.COLD, "a save after an edit still saves");
         check(saved("Style=Cold", "VanillaArms=true"), "and leaves the edited row in the file");
 
-        edit(text().replace("FieldOfView=65.0", "FieldOfView=80"));
+        edit(text().replace("FieldOfView=70.0", "FieldOfView=80"));
         Tracking.cycleStyle(0);
         check(saved("Style=Vivid", "FieldOfView=80", "VanillaArms=true"), "a save made before the watch has looked at an edit leaves the edited row in the file too");
         Tracking.watchSettings();
@@ -1216,7 +1216,7 @@ public final class CoreTests {
         for (CameraUnlock.Option option : options) {
             ids.append(option.id).append(' ');
         }
-        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled ThirdPersonEnabled FieldOfView MouseLookSpeed StickLookSpeed Quality IsometricQuality "
+        check(ids.toString().equals("EnableOnStartup WorldSpaceYaw TrackingMode LocalSmoothing RemoteSmoothing AimMode LightMultiplier FirstPersonEnabled ThirdPersonEnabled FieldOfView ThirdPersonFieldOfView MouseLookSpeed StickLookSpeed Quality IsometricQuality "
                         + "Style FirstPerson ThirdPerson FirstPersonInVehicles HillHeight MuzzleFlash Crosshair RegripTwoHandedWeapons SplitScreen CustomiseCharacterHead TorchFollowsHead HearFromTheEye LightningBolts "
                         + "ShotImpacts FallingDebris LampShadows ColouredGlassLight FarVehiclesAndZombies ModdedVehicleInteriors QuickRagdolls HitFlinch HitDirection HeadLedViewWhenDown ItemsAsModels FinerSkins LeaveOutScreenGrey WetOnThePlayer AimBlur GranTurismoToneMapping NameTagsAtHeads CaptionsOverSets Highlights InteractLabel InventoryStaysOpen QuickLoot FiguresBehindWalls OverarmThrow FishingRod SurroundingsInReflections WatchGlance HeldMap SecondPlayerQuality "
                         + "SecondPlayerIsometricQuality SecondPlayerStyle SecondPlayerFirstPerson SecondPlayerThirdPerson SecondPlayerFirstPersonInVehicles ThirdPlayerQuality ThirdPlayerIsometricQuality "
@@ -1240,7 +1240,7 @@ public final class CoreTests {
             }
         }
         check(page.toString().equals("[Quick settings] EnableOnStartup "
-                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson ThirdPersonEnabled ThirdPerson FieldOfView MouseLookSpeed StickLookSpeed Crosshair HitDirection Highlights InteractLabel InventoryStaysOpen QuickLoot HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads CaptionsOverSets "
+                        + "[First person] FirstPersonEnabled FirstPersonInVehicles FirstPerson ThirdPersonEnabled ThirdPerson FieldOfView ThirdPersonFieldOfView MouseLookSpeed StickLookSpeed Crosshair HitDirection Highlights InteractLabel InventoryStaysOpen QuickLoot HearFromTheEye HeadLedViewWhenDown NameTagsAtHeads CaptionsOverSets "
                         + "QuickRagdolls HitFlinch FiguresBehindWalls OverarmThrow FishingRod WatchGlance HeldMap HillHeight [Head tracking] TrackingMode AimMode WorldSpaceYaw LocalSmoothing RemoteSmoothing TorchFollowsHead LightMultiplier CustomiseCharacterHead [Graphics] Quality IsometricQuality Style LightningBolts ShotImpacts FallingDebris LampShadows ColouredGlassLight MuzzleFlash WetOnThePlayer AimBlur GranTurismoToneMapping ItemsAsModels FinerSkins "
                         + "LeaveOutScreenGrey SurroundingsInReflections FarVehiclesAndZombies ModdedVehicleInteriors HiddenWallDecor [Custom graphics] TreeQuality GrassDensity GrassDistance RenderScale ViewDistance ZombiesAndPropsDrawDistance "
                         + "FarTreeDistance RainOnGlass ShadingAndLight Reflections ReflectionScale FullSizeTextures SurfaceDepth SharpShadows WholeFigureShadows FrameBlending Antialiasing Upscaling "

@@ -228,6 +228,7 @@ final class Tracking {
         PendingLights.set(live.spreadLightUpdates());
         SplitScreen.set(live.splitScreen());
         FieldOfView.set(live.fieldOfView());
+        FieldOfView.setBehind(live.thirdPersonFieldOfView());
         LookSpeed.setMouse(live.mouseLookSpeed());
         LookSpeed.setStick(live.stickLookSpeed());
         talk(live.talkingMouths(), live.microphones());
@@ -235,7 +236,7 @@ final class Tracking {
         Log.info("the mod's rules offline: " + Rules.described(Rules.rows()));
         Log.info("the mod's parts: " + Part.described());
         Log.info("hill height " + HillHeight.asked());
-        Log.info("first person field of view set to " + FieldOfView.degrees() + " degrees vertical");
+        Log.info("field of view set to " + FieldOfView.degrees() + " degrees vertical in first person, " + FieldOfView.behindDegrees() + " in third person");
         Log.info("look speed " + LookSpeed.mouse() + " for the mouse, " + LookSpeed.stick() + " for a controller's stick");
         Log.info("head tracking " + (enabled ? "on" : "off") + ", " + TRACKING_MODE_LABEL[trackingMode] + ", yaw about "
                 + (worldYaw ? "straight up" : "the view's own up") + ", " + aimModeLabel());
@@ -308,6 +309,10 @@ final class Tracking {
         if (live.fieldOfView() != was.fieldOfView()) {
             FieldOfView.set(live.fieldOfView());
             Log.info(Config.FILE_NAME + " changed: first person field of view set to " + live.fieldOfView() + " degrees vertical");
+        }
+        if (live.thirdPersonFieldOfView() != was.thirdPersonFieldOfView()) {
+            FieldOfView.setBehind(live.thirdPersonFieldOfView());
+            Log.info(Config.FILE_NAME + " changed: third person field of view set to " + live.thirdPersonFieldOfView() + " degrees vertical");
         }
         if (live.mouseLookSpeed() != was.mouseLookSpeed()) {
             LookSpeed.setMouse(live.mouseLookSpeed());

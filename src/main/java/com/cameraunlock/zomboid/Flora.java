@@ -553,7 +553,7 @@ final class Flora {
         return Crowns.detail((BRANCH_TIP + TWIG_TIP) * pixelsHigh / (2f * TWIG_PIXELS * tanHalfVertical));
     }
 
-    /** twiggedFrom for a picture 1080 pixels high at the default field of view: about 20 tiles. */
+    /** twiggedFrom for a picture 1080 pixels high at the default field of view: about 18 tiles. */
     static final float TWIGGED_AT_1080 = twiggedFrom(1080, (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2.0));
 
     /**

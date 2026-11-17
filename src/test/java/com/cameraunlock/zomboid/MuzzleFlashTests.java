@@ -10,7 +10,7 @@ import static com.cameraunlock.zomboid.Checks.check;
 final class MuzzleFlashTests {
     private MuzzleFlashTests() {}
 
-    /** The picture of the rig and the default field of view: 65 degrees from the bottom to the top, 16 by 9. */
+    /** The picture of the rig and the default field of view: 70 degrees from the bottom to the top, 16 by 9. */
     private static final float TAN_HALF = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES / 2.0)), ASPECT = 16f / 9f;
 
     /**

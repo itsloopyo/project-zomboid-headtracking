@@ -470,8 +470,8 @@ final class CrownTests {
         float set = (float) Math.tan(Math.toRadians(FieldOfView.DEFAULT_DEGREES) / 2.0), wide = (float) Math.tan(Math.toRadians(90.0) / 2.0);
         check(Flora.twiggedFrom(2160, set) < Flora.TWIGGED_AT_1080 && Flora.twiggedFrom(1080, wide) > Flora.TWIGGED_AT_1080 && Flora.TWIGGED_AT_1080 == Flora.twiggedFrom(1080, set),
                 "twigs reach further in a taller picture and less far in a wider view");
-        check(twigged(frame, places, 20f, Flora.TWIGGED_AT_1080) && !twigged(frame, places, 30f, Flora.TWIGGED_AT_1080) && twigged(frame, places, 30f, Flora.twiggedFrom(2160, set)),
-                "at 1080 pixels high a bare crown 20 tiles off has twigs and one 30 off none, and at 2160 that one has them too");
+        check(twigged(frame, places, 18f, Flora.TWIGGED_AT_1080) && !twigged(frame, places, 30f, Flora.TWIGGED_AT_1080) && twigged(frame, places, 30f, Flora.twiggedFrom(2160, set)),
+                "at 1080 pixels high a bare crown 18 tiles off has twigs and one 30 off none, and at 2160 that one has them too");
     }
 
     /** Whether a bare crown that far off has twigs, which are wood too fine to throw a shadow: see Flora.FINE_MARK. */

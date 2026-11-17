@@ -1369,7 +1369,7 @@ public final class FirstPerson {
         WorldScene.Frame scene = view.worldScene.next();
         if (landed) {
             if (pictureBehind) {
-                buildBehind(player, scene, behindView, view.fieldOfView.tanHalfVertical());
+                buildBehind(player, scene, behindView, view.fieldOfView.tanHalfVertical(), FieldOfView.behindScale(thirdPerson.share()));
             } else {
                 scene.build(player, trackedView, aimView, eyeFromAim, view.fieldOfView.tanHalfVertical(), FieldOfView.setTanHalfVertical(), null, false);
             }
@@ -1545,7 +1545,8 @@ public final class FirstPerson {
         aimOverhead(player, floorUp);
         // To or from third person the camera's end of the way is its place behind the character.
         view.flight.camera(overheadView, overheadHalfHigh / OVERHEAD_AWAY, OVERHEAD_AWAY, OVERHEAD_YAW, OVERHEAD_PITCH,
-                pictureBehind ? behindClean : cleanView, pictureBehind ? behindView : trackedView, yaw, pitch, view.fieldOfView.tanHalfVertical(), flightView);
+                pictureBehind ? behindClean : cleanView, pictureBehind ? behindView : trackedView, yaw, pitch,
+                view.fieldOfView.tanHalfVertical() * (pictureBehind ? FieldOfView.behindScale(thirdPerson.share()) : 1f), flightView);
         view.hearing.face(flightView, -OVERHEAD_PITCH * (1f - view.flight.share()), view.flight.share());
         if (view.flight.away() > OWN_FROM) {
             standingView.set(flightView);
@@ -1555,7 +1556,7 @@ public final class FirstPerson {
             scene.seenFrom(flightView, view.flight.tanHalfFieldOfView(), view.flight.away(), view.flight.share());
             scene.canopyWindow(canopyX, canopyY, floorUp, canopyAimed, canopyAimX, canopyAimY, canopyFaded, canopyFadedCount);
         } else if (pictureBehind) {
-            buildBehind(player, scene, flightView, view.flight.tanHalfFieldOfView());
+            buildBehind(player, scene, flightView, view.flight.tanHalfFieldOfView(), 1f);
         } else {
             fromTheEye = true;
             ViewCamera.eyeFrom(aimView, flightView, flightFromAim);
@@ -1658,11 +1659,11 @@ public final class FirstPerson {
      * Builds the frame from a camera behind the character, who is one of the people in it. The
      * picture is the vehicle sat in seen from outside, and not its cabin from the seat.
      */
-    private void buildBehind(IsoPlayer player, WorldScene.Frame scene, ViewCamera.Pose camera, float tanHalf) {
+    private void buildBehind(IsoPlayer player, WorldScene.Frame scene, ViewCamera.Pose camera, float tanHalf, float scale) {
         fromTheEye = false;
         view.ride.seated = false;
         ViewCamera.eyeFrom(aimView, camera, behindFromAim);
-        scene.build(player, camera, aimView, behindFromAim, tanHalf, FieldOfView.setTanHalfVertical(), null, false);
+        scene.build(player, camera, aimView, behindFromAim, tanHalf * scale, FieldOfView.setTanHalfVertical(), null, false);
         scene.showsTheViewer();
     }
 

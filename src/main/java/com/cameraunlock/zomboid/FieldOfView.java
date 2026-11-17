@@ -4,7 +4,9 @@ package com.cameraunlock.zomboid;
  * The first-person view's field of view. The game has none of its own: its
  * view is a flat projection with a zoom, so this number is the mod's, set by
  * FieldOfView in CameraUnlock.ini, and the frame's projection, the reticle and
- * the near plane all take it from here.
+ * the near plane all take it from here. The camera behind the character has its
+ * own, ThirdPersonFieldOfView, narrower by default: it already stands back from
+ * the scene, and wide it shrinks the character and bends the edges as it swings.
  *
  * It is the angle from the bottom of the picture to the top, so a wider screen
  * shows more to the sides and the same amount up and down.
@@ -19,9 +21,11 @@ package com.cameraunlock.zomboid;
  */
 final class FieldOfView {
     /** The row's default in the config table (Config). */
-    static final float DEFAULT_DEGREES = 65f;
+    static final float DEFAULT_DEGREES = 70f;
+    /** ThirdPersonFieldOfView's default. */
+    static final float DEFAULT_BEHIND_DEGREES = 60f;
 
-    /** The tangent of half the angle with a firearm aimed, over the tangent the player set: 50 degrees at the default 65. */
+    /** The tangent of half the angle with a firearm aimed, over the tangent the player set: 54 degrees at the default 70. */
     static final float AIMED_ZOOM = 0.73f;
     /** How long the zoom takes to cover all but a third of what is left to go. */
     static final float ZOOM_SECONDS = 0.07f;
@@ -29,6 +33,7 @@ final class FieldOfView {
     private static final float ZOOM_SETTLED = 1e-4f;
 
     private static volatile float degrees = DEFAULT_DEGREES;
+    private static volatile float behindDegrees = DEFAULT_BEHIND_DEGREES;
     private float zoom = 1f;
 
 
@@ -43,6 +48,25 @@ final class FieldOfView {
      */
     static void set(float newDegrees) {
         degrees = newDegrees;
+    }
+
+    static float behindDegrees() {
+        return behindDegrees;
+    }
+
+    /** As set, for the camera behind the character. */
+    static void setBehind(float newDegrees) {
+        behindDegrees = newDegrees;
+    }
+
+    /**
+     * What the tangents of a camera a share of the way out from the eye to its place behind the
+     * character are scaled by: 1 at the eye, the third person tangent over the first person one
+     * behind. The angle eases with the camera, so it never jumps as the camera comes and goes.
+     */
+    static float behindScale(float share) {
+        float behind = (float) Math.tan(Math.toRadians(behindDegrees) / 2.0);
+        return 1f + (behind / setTanHalfVertical() - 1f) * share;
     }
 
     /** Moves the zoom towards aimed or unaimed over a frame of the given length. */

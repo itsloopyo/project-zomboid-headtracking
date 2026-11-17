@@ -441,7 +441,9 @@ FirstPersonEnabled=true
 ; there back to the isometric view. false: it switches between first person and the isometric view only.
 ThirdPersonEnabled=true
 ; Vertical field of view of the first person view, in degrees: 40 to 110.
-FieldOfView=65.0
+FieldOfView=70.0
+; Vertical field of view of the third person view, in degrees: 40 to 110.
+ThirdPersonFieldOfView=60.0
 ; How fast the mouse turns the first and third person view: 1 is the mod's own speed, 0.5 half as fast, 2 twice as
 ; fast, from 0.1 to 3.0. Your head's turns are your tracker's and do not change with it.
 MouseLookSpeed=1.0
