@@ -1089,7 +1089,7 @@ Viewpoint's view and this mod's first person take turns, since each turns the mo
 - **Cars and weapons look blocky up close** - cars, and every weapon or item the mod has no model of its own for, are drawn with the game's own textures. Most are 256 pixels a side or smaller for a weapon or item and 512 for a car, so close up you see their pixels. The mod doesn't change them. The game shrinks them further when **Maximum Texture Size** or **Maximum Vehicle Texture Size** (game options, **Display & Performance**, under Textures) is set below 2048. Set both to 2048 and restart the game to see them at the size they were made. The log says what both are set to.
 - **High looks like Medium or Low** - on an NVIDIA graphics card with less than 6 GB, or when the card runs out of memory, the mod scales every mode down so the game keeps running, and tells you so on screen. The `video memory:` lines in the log show what the card reported and what was turned down.
 
-For help, ask on [Discord](https://discord.com/invite/dxyZdyFNT9) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues), and include `ProjectZomboidHeadTracking.log` from the game folder.
+For help, ask on [Discord](https://discord.gg/8H97rteh3b) or [report an issue](https://github.com/itsloopyo/project-zomboid-headtracking/issues), and include `ProjectZomboidHeadTracking.log` from the game folder.
 
 ## Updating
 
@@ -1113,7 +1113,7 @@ pixi run package
 
 ## Community & Support
 
-- Discord: [Loop's Head Tracking Hangout](https://discord.com/invite/dxyZdyFNT9) - setup help, bug reports, and new-release announcements
+- Discord: [Loop's Head Tracking Hangout](https://discord.gg/8H97rteh3b) - setup help, bug reports, and new-release announcements
 - [Lopari](https://lopari.app) - free Windows launcher with one-click install and launch for the released head-tracking mods
 - [Headcam](https://headcam.app) - my free app that turns your iPhone or Android phone into the head tracker
 
