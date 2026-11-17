@@ -264,25 +264,27 @@ final class CarPhysics {
         if (kept == null || kept.vehicle != vehicle) {
             return;
         }
-        long now = System.nanoTime();
-        float mass = vehicle.getMass();
         float pulledX = 0f, pulledY = 0f;
-        if (!kept.flying && kept.steep > 0f && now - kept.landSaidAt <= LAND_SAID_FOR_NANOS) {
-            // The pull of its weight down the slope. The game's physics has up as its y: the map's y is its z.
-            float pull = mass * Airtime.GRAVITY * kept.steep;
-            Bullet.applyCentralForceToVehicle(vehicle.getId(), kept.downX * pull, 0f, kept.downY * pull);
-            pulledX = kept.downX * Airtime.GRAVITY * kept.steep;
-            pulledY = kept.downY * Airtime.GRAVITY * kept.steep;
-            if (DevBuild.ON && now - kept.pullSaidAt > 2_000_000_000L) {
-                kept.pullSaidAt = now;
-                Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h on a slope of %.3f is pulled down it towards %.2f, %.2f",
-                        vehicle.getScriptName(), vehicle.getCurrentSpeedKmHour(), kept.steep, kept.downX, kept.downY));
+        // Only a vehicle told of a slope asks the time: this runs for every vehicle on every physics step.
+        if (!kept.flying && kept.steep > 0f) {
+            long now = System.nanoTime();
+            if (now - kept.landSaidAt <= LAND_SAID_FOR_NANOS) {
+                // The pull of its weight down the slope. The game's physics has up as its y: the map's y is its z.
+                float pull = vehicle.getMass() * Airtime.GRAVITY * kept.steep;
+                Bullet.applyCentralForceToVehicle(vehicle.getId(), kept.downX * pull, 0f, kept.downY * pull);
+                pulledX = kept.downX * Airtime.GRAVITY * kept.steep;
+                pulledY = kept.downY * Airtime.GRAVITY * kept.steep;
+                if (DevBuild.ON && now - kept.pullSaidAt > 2_000_000_000L) {
+                    kept.pullSaidAt = now;
+                    Log.info(String.format(Locale.ROOT, "a %s at %.1f km/h on a slope of %.3f is pulled down it towards %.2f, %.2f",
+                            vehicle.getScriptName(), vehicle.getCurrentSpeedKmHour(), kept.steep, kept.downX, kept.downY));
+                }
             }
         }
         // Not its wheels' grip: ThrownAcross takes what the pull did to its speed off the throw.
         kept.stepped.step(pulledX, pulledY);
         if (kept.roll != 0f) {
-            float torque = kept.roll * mass;
+            float torque = kept.roll * vehicle.getMass();
             Bullet.applyTorqueToVehicle(vehicle.getId(), kept.rollAbout.x * torque, kept.rollAbout.y * torque, kept.rollAbout.z * torque);
         }
     }
