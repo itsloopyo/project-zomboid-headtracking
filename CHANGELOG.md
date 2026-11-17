@@ -1,5 +1,89 @@
 # Changelog
 
+## [0.6.0] - 2026-11-17
+
+### Added
+
+- fill house and shop shelves with books, boxes and tins in first person, as full or as sparse as the game paints them
+- stand the things the game sets out on furniture, a vase on a dresser or a cushion on a chair, on the modelled piece in first person
+- stock corner wall shelving with books, give every shelved book its own colour, and thin out the sparse shelves
+- add InventoryStaysOpen, keeping the inventory and loot panels open in first person with the loot panel showing what the crosshair is on
+- add an Upscaling graphics setting that enlarges a first person picture drawn below screen size with AMD FSR 1 instead of bilinear filtering
+- show a quick loot list beside the crosshair in first person, taking an item with a tap of Interact and everything with a hold
+- add mouse and controller look speed sliders for the first and third person view
+- stand real models in place of the game's decor cards, from batches of props each script builds for one family of furniture
+- add the counters batch: doors the game paints ajar stand open on their hinges, and the worktop and kick board carry its stains and scuffs
+- add a FurnitureDecor switch under [Content] that puts the game's pictures back over the furniture in place of the props
+- draw the game's combo washer dryer as a front-loading washer with its door in its front
+- stand books on the crafted plank shelves where the game paints them holding books
+- model what the game paints on baths and basins as props: bottles, soap, a sponge and a towel on the bath, dishes and a tea towel in the sink
+- add the dressers props batch: photo frames, mugs, tissue boxes, plants, vases, jewellery boxes, mirrors and pulled-out drawers on dressers, bedside cabinets and side tables
+- add glass_fridge and glass_cooler models, a shop fridge and a two-door cooler with a glass front
+- draw a shop's glass-fronted fridges and coolers as glass_fridge and glass_cooler with glass over their doors
+- stand the food behind the glass of a shop fridge and cooler from the game's many and few pictures
+- model the appliances_01 decor: fridge magnets, notes and boxes, oven towels, an oven door left down, and the door ajar on a front-loading washer and the lid up on a top loader
+- model the seating_01 decor: throw cushions, bolsters and plaid throws on sofas and armchairs, a doily on a dining chair, a blanket over an ottoman
+- model the office decor: filing cabinet drawers pulled out with folders in them, locker doors ajar and cartons on locker tops
+- run on Linux, reading the hotkeys from the game's keyboard state, finding FMOD on java.library.path and leaving the window where the game put it
+- switch first person on Delete, Scroll Lock or Ctrl+Shift+B, leaving Delete out while Project Viewpoint runs
+- draw corpses as models in the Low and Medium graphics modes too, and keep flat corpses as one of the savings when graphics memory runs short
+- change the graphics mode on F9 or Ctrl+Shift+J, leaving F9 out while Project Viewpoint runs
+- keep a car upright in hard turns and handbrake slides offline, with a VehiclesStayUprightInTurns rule
+- change the graphics mode on F9 or Pause, with the development frame dump moved to Caps Lock
+- model the low shop shelves that stood as flat cards: beige magazine, wooden and Zippee low wall shelves
+- stand newspaper vending boxes and neon Open signs as models
+- add a ThirdPersonFieldOfView setting, 60 degrees by default, and widen the first person default from 65 to 70 degrees
+- measure how much of its square a floor sprite the far land lays as ground covers, and its colour where it does, when that sprite's colours are read
+- build the land past the loaded map from the map's own lots: floors and roads in their tiles' colours, buildings in their walls' paint with windows where the map has them and pitched roofs where its roof tiles slope
+
+### Changed
+
+- read only the keys core has asked about in LinuxKeys.read and look their game codes up in an array
+- work out the held map's paper grain, creases and tone once a pixel instead of twice
+- read the clock and the vehicle's mass in CarPhysics.step only for a vehicle on a slope or being rolled, not for every vehicle on every physics step
+- take the length of a vehicle's heading in ThrownAcross with Math.sqrt instead of Math.hypot, which runs for every vehicle on every update
+- fetch a square's object list once per square in CarSmash.sweep instead of twice per object
+- ask only the square whose edge the third person camera's ray crosses about a low fence or a doorway, not all four edges of both squares
+- walk a piece's attached sprites by index in Props.overlaysOn, as the other builders do, instead of making an iterator for every square of every piece
+- LootList.round trims a weight's trailing zeros with a loop instead of compiling a regex for every row at each read
+- draw pieces of one model dyed from different places in one draw, by telling each piece's dye in its own instance row
+
+### Fixed
+
+- say in plain words why first person won't turn on, point to a driver update, and keep the line up for 8 seconds
+- choose a shelf's full or sparse goods from the picture the game paints over it, not from how many things the container holds
+- stand the game's decor only on furniture with a top, and not where its picture lies under that top
+- read whether a fitting is painted holding few things from the game's pictures for that fitting's own sprite
+- put no goods on a fitting whose overlay is not one of the game's container pictures, rather than throwing
+- keep the panels open without pinning them, hide the game's panels from the held cursor, and take all from a container when Interact is held
+- hide item tooltips and hover from the held cursor, end panel drags as the look takes the mouse, and make the hold on Interact one decision
+- look in a never-opened container before deciding what holding Interact does, and close a loot panel shown for Take All the way the game does
+- add the film grain after FSR's sharpening at screen size, skip the antialiasing pass when Antialiasing is Off, and say FSR applies whenever the picture is drawn at fewer pixels than the screen
+- write TV and radio captions over the set in first person, not where the isometric zoom puts them
+- stand TV captions on the set as drawn, and show a held radio's lines in first person
+- stand TV captions on the drawn model, keep low radio lines over the panels shown, and write a carried radio's lines without NameTagsAtHeads
+- write a carried or seated car radio's lines after the game's own text, and stand set captions on the top of the set's case
+- stop reading and restoring the game's blend around radio line backdrops, and keep a carried radio's fallback frame under NameTagsAtHeads
+- leave a controller's A, d-pad and menus to the game wherever the quick loot list cannot take them
+- build furniture.bin.gz to the same bytes on every Blender run
+- stand the props of every square of a piece over more than one square, and keep the props in an art jar of their own
+- drop the wear marks from the counters batch, which were the counter's own colour
+- blame a fault a build thread hands back on the part that threw it, and a fault in Models on the props where they asked
+- keep the game's card while a prop's picture is missing, decide props by the model a piece is drawn as, and rebuild a chunk when a far square of one of its pieces changes
+- key a batch's hosts by the SHA-256 of their models in furniture.bin.gz as well as their bounds
+- keep dressers props inside their pieces: drawers pulled at most 12 cm, and things on the side table placed over its taller picture
+- stand things on the side table no nearer its edge than 20 cm
+- colour plant leaves, blooms and white pots from the shader's surfaces, and dye the rest from the pixel whose colour holds under a two pixel slip
+- read Shift, Ctrl and Alt from the first Linux key reading, so the first chord press of a session is not taken without them
+- bump cameraunlock-core to 20271a5 so the view catches up after the game freezes instead of swinging past the head
+- measure how hard a car is thrown across over the physics steps it took, and leave the hills' pull out of it
+- build a shop front standing in a house wall's doorway as a window cut to the doorway, not as flat wall over the house wall's skin
+- model the National Dispatch and Sun Times coin box at the size and place the sprite paints it, in plain paint
+- fade far zombies, people and cars out with the ground again instead of cutting each one out whole near the end of the view
+- bump cameraunlock-core so the look speed sliders start at 0.1 instead of 0.10000000149011612
+- read a container's overlay sprite once in OverlayPictures.holding, so a build thread does not fault when the game takes the overlay off between the null check and the read
+- QuickLoot forgets the container it last had the game look into when the list is hidden, so it does not hold a left save's container
+
 ## [0.5.0] - 2026-11-15
 
 ### Added
