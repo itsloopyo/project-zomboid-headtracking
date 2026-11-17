@@ -255,7 +255,8 @@ final class Props {
         out.clear();
         List<IsoSpriteInstance> attached = object.getAttachedAnimSprite();
         if (attached != null) {
-            for (IsoSpriteInstance instance : attached) {
+            for (int i = 0; i < attached.size(); i++) {
+                IsoSpriteInstance instance = attached.get(i);
                 if (instance != null && instance.parentSprite != null && instance.parentSprite.getName() != null) {
                     out.add(instance.parentSprite);
                 }
