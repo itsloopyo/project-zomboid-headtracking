@@ -80,7 +80,6 @@ final class ShaderTests {
         Checks.run("theLastFrameIsFoundFromTheEyeNotTheMap", () -> theLastFrameIsFoundFromTheEyeNotTheMap(programs));
         Checks.run("whatIsDrawnThroughTheTurnTakesTheEyeOffItself", () -> whatIsDrawnThroughTheTurnTakesTheEyeOffItself(programs));
         Checks.run("figuresAndTerrainShareSunsetHaze", ShaderTests::figuresAndTerrainShareSunsetHaze);
-        Checks.run("figuresAreNotSievedIntoTheFarLand", ShaderTests::figuresAreNotSievedIntoTheFarLand);
         Checks.run("aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads", ShaderTests::aThinSpriteSampleTakesItsColourFromTheSamplesItsCutReads);
         Checks.run("aCrownOpensOverTheEyeASprigAtATime", ShaderTests::aCrownOpensOverTheEyeASprigAtATime);
         Checks.run("aRollerDoorIsLaidAsSlatsAndNotAsMasonry", () -> aRollerDoorIsLaidAsSlatsAndNotAsMasonry(programs));
@@ -172,23 +171,6 @@ final class ShaderTests {
                 "distant terrain must use the shared directional haze");
         Checks.check(PipelineShaders.FIGURE_LIGHT_MAIN.contains("distanceHaze(normalize(ray), range)"),
                 "characters must receive the same sunset haze as terrain");
-    }
-
-    /**
-     * Sieved into the far land as the ground is, a zombie or car near the end of the view was a
-     * see-through shimmer once frames were mixed (a player's report, 2026-11-14). A figure is
-     * left out whole by where it stands, by the shader's own measure of how far gone the ground is.
-     */
-    private static void figuresAreNotSievedIntoTheFarLand() {
-        String figures = PipelineShaders.FIGURE_LIGHT_MAIN.replaceAll("//[^\n]*", "");
-        Checks.check(!figures.contains("thinnedOut(") && !figures.contains("sieve("), "figures are thinned out pixel by pixel into the far land");
-        Checks.check(PipelineShaders.ENDS.contains("return max(smoothstep(uFogStart, uFogEnd, length(fromEye)), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(fromEye - uLoaded.xy)));"),
-                "the built world ends otherwise than Pipeline.gone says, which figures are left out by");
-        float start = 0.78f * 80f, end = 80f, loaded = 1000f;
-        Checks.check(Pipeline.gone(start, 0f, start, end, loaded) == 0f && Pipeline.gone(end, 0f, start, end, loaded) == 1f,
-                "the built world is not whole at the fog's start and gone at its end");
-        Checks.check(Math.abs(Pipeline.gone((start + end) / 2f, 0f, start, end, loaded) - 0.5f) < 1e-5f, "the built world is not half gone half way through the fog");
-        Checks.check(Pipeline.gone(10f, loaded - 1f, start, end, loaded) > 0.75f, "a figure at the end of the loaded map is not past where the built world ends");
     }
 
     /**

@@ -7709,8 +7709,10 @@ final class PipelineShaders {
                 // A vehicle's lamps that are on shine whatever light it stands in.
                 color += lampLight(uv);
                 float range = max(ahead * length(ray) - uRangeFrom, 0.0);
-                // Figures are not thinned out into the far land as the built world is: the whole of one
-                // standing where it has mostly ended is left out of the picture (Pipeline.figurePastTheEnd).
+                // With the far land behind them, figures past where the built world ends are left out as it is: see thinnedOut.
+                if (thinnedOut(ray.xy * ahead)) {
+                    discard;
+                }
                 float ends = uBeyond > 0.5 ? 0.0 : max(smoothstep(uFogStart, uFogEnd, range), smoothstep(uLoaded.z - (uFogEnd - uFogStart), uLoaded.z, length(ray.xy * ahead - uLoaded.xy)));
                 float haze = max(ends, distanceHaze(normalize(ray), range) * mix(uEyeOutdoors, 1.0, outdoors));
                 color = mix(color, skyAround(normalize(ray), 0.0), haze);
