@@ -1558,7 +1558,7 @@ public final class CoreTests {
         CameraUnlock.Option mouse = Tracking.options()[optionNamed(Tracking.options(), "MouseLookSpeed")],
                 stick = Tracking.options()[optionNamed(Tracking.options(), "StickLookSpeed")];
         for (CameraUnlock.Option each : List.of(mouse, stick)) {
-            check(each.kind == CameraUnlock.OPTION_FLOAT && (float) each.min == LookSpeed.LEAST && (float) each.max == LookSpeed.MOST && each.step == 0.1
+            check(each.kind == CameraUnlock.OPTION_FLOAT && each.min == 0.1 && each.max == 3.0 && each.step == 0.1
                             && Tracking.notch(LookSpeed.DEFAULT, each.step) == LookSpeed.DEFAULT,
                     each.id + " is a slider from " + LookSpeed.LEAST + " to " + LookSpeed.MOST + " in tenths, with today's speed on a notch: "
                             + each.min + " " + each.max + " " + each.step);
