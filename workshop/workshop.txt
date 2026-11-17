@@ -7,7 +7,7 @@ description=[b]This Workshop copy needs ZombieBuddy[/b], a separate mod by zed-0
 description=
 description=It's free and open source (MIT) on [url=https://github.com/itsloopyo/project-zomboid-headtracking]GitHub[/url].
 description=
-description=[b]Found a bug, or something that could work better? Tell me in a comment here or on [url=https://discord.com/invite/dxyZdyFNT9]Discord[/url].[/b]
+description=[b]Found a bug, or something that could work better? Tell me in a comment here or on [url=https://discord.gg/8H97rteh3b]Discord[/url].[/b]
 description=
 description=[img]https://raw.githubusercontent.com/itsloopyo/project-zomboid-headtracking/main/workshop/gallery/snow-sunset.jpg[/img]
 description=
