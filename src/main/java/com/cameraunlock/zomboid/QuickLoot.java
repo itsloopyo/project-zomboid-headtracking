@@ -149,6 +149,7 @@ final class QuickLoot {
     /** Nothing shown: the look is off what is looted, or the list is not drawn this frame. */
     void hide() {
         list.clear();
+        explored = null;
         taking = false;
     }
 
