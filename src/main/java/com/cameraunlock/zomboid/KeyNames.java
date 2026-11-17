@@ -131,6 +131,16 @@ final class KeyNames {
         return BY_VIRTUAL_KEY[virtualKey];
     }
 
+    /** The game's codes of a key as a row of [Hotkeys] writes it, by name ("PageUp") or by Windows virtual-key code ("0x04"), and none where the game has no such key. */
+    static int[] codesOf(String key) {
+        if (key.length() > 2 && key.regionMatches(true, 0, "0x", 0, 2)) {
+            int[] codes = codes(Integer.parseInt(key.substring(2), 16));
+            return codes == null ? new int[0] : codes;
+        }
+        Integer code = CODES.get(key.toLowerCase(Locale.ROOT));
+        return code == null ? new int[0] : new int[] {code};
+    }
+
     /** The Windows virtual-key code of a name a row can hold, for the test that holds this table to cameraunlock-core's keys.json. */
     static Map<String, Integer> virtualKeys() {
         Map<String, Integer> named = new HashMap<>();

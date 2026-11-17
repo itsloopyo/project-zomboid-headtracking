@@ -14,6 +14,8 @@ public final class Core {
     public int getScreenHeight() { throw new UnsupportedOperationException("reference stub"); }
     public float getZoom(int playerIndex) { throw new UnsupportedOperationException("reference stub"); }
     public KeyBinding getKeyBinding(String name) { throw new UnsupportedOperationException("reference stub"); }
+    public KeyBinding getKeyBinding(int key) { throw new UnsupportedOperationException("reference stub"); }
+    public static final KeyBinding KEYBINDING_EMPTY = null;
     public boolean isToggleToAim() { throw new UnsupportedOperationException("reference stub"); }
     public String getOptionGamepadBindingPreset() { throw new UnsupportedOperationException("reference stub"); }
     public boolean isDoingTextEntry() { throw new UnsupportedOperationException("reference stub"); }

@@ -746,6 +746,7 @@ final class Tracking {
             sayGraphics(savePicked(Quality.decided()));
             sayGraphics(saveLowered(Quality.stepped()));
             if (enteringSave) {
+                tellKeysTheGameShares();
                 graphicsToSay.set(0);
                 Quality.stepSaid();
             } else {
@@ -1083,6 +1084,59 @@ final class Tracking {
     static String heardKeys(String row) {
         String keys = config.keys(row);
         return viewpoint ? withoutKeys(keys, VIEWPOINT_KEYS) : keys;
+    }
+
+    /** One of the game's key bindings: its name, and the Shift, Ctrl and Alt it needs held. */
+    record GameBinding(String name, boolean ctrl, boolean shift, boolean alt) {}
+
+    /** What tellKeysTheGameShares has said, so that each is said once a process. Logic thread. */
+    private static final Set<String> sharedKeysTold = new java.util.HashSet<>();
+
+    /** Says in the log each hotkey that one of the game's key bindings, its own or another mod's, is also on, once. Logic thread. */
+    private static void tellKeysTheGameShares() {
+        zombie.core.Core game = zombie.core.Core.getInstance();
+        Map<String, String> rows = new java.util.TreeMap<>();
+        for (String row : Config.DEFAULT_KEYS.keySet()) {
+            rows.put(row, heardKeys(row));
+        }
+        for (String line : keysTheGameShares(rows, code -> {
+            zombie.core.Core.KeyBinding binding = game.getKeyBinding(code);
+            return binding == zombie.core.Core.KEYBINDING_EMPTY ? null : new GameBinding(binding.name(), binding.ctrl(), binding.shift(), binding.alt());
+        })) {
+            if (sharedKeysTold.add(line)) {
+                Log.info(line);
+            }
+        }
+    }
+
+    /**
+     * Each key of the rows that a key binding of the game is also on, as a line for the log. The game
+     * acts on a binding once the Shift, Ctrl and Alt it names are held, whatever else is (Core.isKey),
+     * so a chord on the key is on it too.
+     *
+     * @param rows      each key list row's keys as they are heard, by the row's key
+     * @param bindingOn the game's key binding on a key code of the game (Core.getKeyBinding), or null for none
+     */
+    static List<String> keysTheGameShares(Map<String, String> rows, IntFunction<GameBinding> bindingOn) {
+        List<String> lines = new java.util.ArrayList<>();
+        for (Map.Entry<String, String> row : rows.entrySet()) {
+            for (String entry : row.getValue().split(", ")) {
+                if (entry.isEmpty()) {
+                    continue;
+                }
+                for (int code : KeyNames.codesOf(entry.substring(entry.lastIndexOf('+') + 1))) {
+                    GameBinding binding = bindingOn.apply(code);
+                    if (binding == null) {
+                        continue;
+                    }
+                    String needs = (binding.ctrl() ? "Ctrl+" : "") + (binding.shift() ? "Shift+" : "") + (binding.alt() ? "Alt+" : "");
+                    lines.add(row.getKey() + " " + entry + " is also the game's key binding \"" + binding.name() + "\"" + (needs.isEmpty()
+                            ? ", which the game acts on whatever Shift, Ctrl or Alt is held, so a press of it does both"
+                            : " on " + needs + "that key, so a press of it with " + needs.substring(0, needs.length() - 1) + " held does both"));
+                }
+            }
+        }
+        return lines;
     }
 
     /** A key list less every entry whose key is one of `left`, with any modifiers, as core leaves them out. */

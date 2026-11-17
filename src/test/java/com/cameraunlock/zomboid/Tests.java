@@ -132,6 +132,7 @@ public final class Tests {
         Checks.run("onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName", Tests::onLinuxEachKeyCoreAsksAboutIsTheGamesKeyOfThatName);
         Checks.run("onLinuxTheHotkeysHearTheKeysTheGameRead", Tests::onLinuxTheHotkeysHearTheKeysTheGameRead);
         Checks.run("onLinuxTheHotkeysHearTheMouseButtons", Tests::onLinuxTheHotkeysHearTheMouseButtons);
+        Checks.run("aHotkeyTheGameAlsoActsOnIsSaid", Tests::aHotkeyTheGameAlsoActsOnIsSaid);
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
@@ -3265,6 +3266,25 @@ public final class Tests {
         LinuxKeys.read(gameDown::contains, NO_BUTTON, now += frame);
         LinuxKeys.letGo();
         check(!LinuxKeys.down(0x21), "a save left lets every key go");
+    }
+
+    /** A hotkey one of the game's key bindings is also on is said, chord or not, and by its name or its code. */
+    private static void aHotkeyTheGameAlsoActsOnIsSaid() {
+        int b = 48, f9 = 67, k = 37;
+        java.util.Map<String, String> rows = new java.util.TreeMap<>(java.util.Map.of("FirstPersonKey", "Delete, ScrollLock, Ctrl+Shift+B",
+                "CycleQualityKey", "F9, Pause", "SplitScreenKey", "0x4B", "CycleStyleKey", ""));
+        List<String> lines = Tracking.keysTheGameShares(rows, code -> code == b ? binding("Crafting UI", false)
+                : code == f9 ? binding("Toggle Voice", true) : code == k ? binding("Display FPS", false) : null);
+        check(lines.equals(List.of(
+                        "CycleQualityKey F9 is also the game's key binding \"Toggle Voice\" on Ctrl+Shift+that key, so a press of it with Ctrl+Shift held does both",
+                        "FirstPersonKey Ctrl+Shift+B is also the game's key binding \"Crafting UI\", which the game acts on whatever Shift, Ctrl or Alt is held, so a press of it does both",
+                        "SplitScreenKey 0x4B is also the game's key binding \"Display FPS\", which the game acts on whatever Shift, Ctrl or Alt is held, so a press of it does both")),
+                "a chord on B, F9 and K by its code are each said with the binding on them and the modifiers it needs, and an empty row is passed over: " + lines);
+        check(Tracking.keysTheGameShares(rows, code -> null).isEmpty(), "and nothing is said where the game has no binding on them");
+    }
+
+    private static Tracking.GameBinding binding(String name, boolean chord) {
+        return new Tracking.GameBinding(name, chord, chord, false);
     }
 
     private static final java.util.function.IntPredicate NO_BUTTON = button -> false;
