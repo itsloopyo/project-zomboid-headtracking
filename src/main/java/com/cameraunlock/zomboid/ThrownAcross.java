@@ -53,7 +53,7 @@ final class ThrownAcross {
             lastY = goingY;
             return false;
         }
-        float flat = (float) Math.hypot(forwardX, forwardY);
+        float flat = (float) Math.sqrt((double) forwardX * forwardX + (double) forwardY * forwardY);
         float thrownX = (goingX - lastX - pushedX) / seconds, thrownY = (goingY - lastY - pushedY) / seconds;
         lastX = goingX;
         lastY = goingY;
