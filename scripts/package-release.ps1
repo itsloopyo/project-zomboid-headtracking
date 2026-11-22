@@ -136,7 +136,8 @@ $assetRows = foreach ($jar in $artJars) {
 # jar under a name with its hash in it, and cameraunlock-package.toml, which names that jar and the
 # art jars in release/assets/ by their downloads from this version's tag. release-mod.yml uploads it
 # to a tagged release and has the catalog pin it. It is not in release/assets/, which the nightly
-# uploads to the dev release, where a manifest naming the v<version> tag's files would be false.
+# uploads to the dev release as it is: for a dev build the nightly rewrites this manifest to name
+# the dev build's version and the dev release's files, and has the catalog list it as dev.
 $headstartDir = Join-Path $releaseDir 'headstart'
 if (Test-Path $headstartDir) { Remove-Item -Recurse -Force $headstartDir }
 New-Item -ItemType Directory -Path $headstartDir -Force | Out-Null

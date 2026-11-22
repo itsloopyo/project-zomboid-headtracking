@@ -5,6 +5,8 @@ description = "Head tracking mod for Project Zomboid"
 license = "MIT"
 channels = ["conda-forge"]
 platforms = ["win-64"]
+# Nothing newer than two weeks before the last lock is resolved.
+exclude-newer = "2026-11-08"
 
 [dependencies]
 # Node runs cameraunlock-core's jar build, which fetches its WebAssembly toolchain once into
@@ -17,6 +19,9 @@ openjdk = ">=25,<26"
 # glslangValidator, the Khronos reference compiler the tests put every shader through. Only a
 # graphics driver compiles them otherwise, and a lenient one lets by what another refuses.
 glslang = "16.6.*"
+# Runs the Headstart catalog's own pin.py over the package manifest before a release or a dev build
+# is published (cameraunlock-core's HeadstartCatalog.psm1). The version the catalog's lock holds.
+python = "3.12.*"
 
 [tasks]
 update-submodule = "git submodule update --remote cameraunlock-core && powershell -NoProfile -ExecutionPolicy Bypass -File cameraunlock-core/scripts/update-submodule.ps1"
