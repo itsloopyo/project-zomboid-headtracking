@@ -11,7 +11,8 @@
 #       installer with the development jar, which has the development keys)
 # and release/assets/, the art jars under the names the launcher downloads them
 # by, ProjectZomboidHeadTracking-<folder>-<first 12 of sha256>.jar, which the
-# release uploads beside the ZIPs.
+# release uploads beside the ZIPs, and release/headstart/, the Headstart package: the code jar
+# under a name with its hash in it and the cameraunlock-package.toml that lists every jar.
 #
 # There is no Nexus ZIP. Installing the mod is the jar next to the game exe
 # plus a site JVM config that install.cmd generates from the game's own
@@ -106,13 +107,18 @@ New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
 # Not Get-FileHash: CI starts this powershell.exe from pwsh, it inherits pwsh's PSModulePath,
 # resolves the Core-only Microsoft.PowerShell.Utility and reports the cmdlet as not recognized.
 $sha = [System.Security.Cryptography.SHA256]::Create()
-$assetRows = foreach ($jar in $artJars) {
-    $stream = [System.IO.File]::OpenRead($jar.FullName)
+function Get-Sha256([string]$Path) {
+    $stream = [System.IO.File]::OpenRead($Path)
     try {
-        $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+        [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
     } finally {
         $stream.Dispose()
     }
+}
+# The Headstart package's files, as (path in the package, release asset name, sha256, size).
+$packageFiles = New-Object System.Collections.Generic.List[object]
+$assetRows = foreach ($jar in $artJars) {
+    $hash = Get-Sha256 $jar.FullName
     $assetName = $jar.BaseName + '-' + $hash.Substring(0, 12) + '.jar'
     $asset = Join-Path $assetsDir $assetName
     Copy-Item -LiteralPath $jar.FullName -Destination $asset
@@ -122,9 +128,49 @@ $assetRows = foreach ($jar in $artJars) {
     (Get-Item -LiteralPath $asset).LastWriteTime = Get-Date
     Copy-Item -LiteralPath $jar.FullName -Destination $pluginsDir
     Write-Host ("  plugins/$($jar.Name), assets/$assetName ({0:N1} MB)" -f ($jar.Length / 1MB)) -ForegroundColor Green
+    $packageFiles.Add([PSCustomObject]@{ Path = $jar.Name; Asset = $assetName; Sha256 = $hash; Size = $jar.Length })
     '    { "release_asset": { "name": "' + $assetName + '", "sha256": "' + $hash + '", "size": ' + $jar.Length + ' }, "target": "' + $jar.Name + '" }'
 }
+
+# release/headstart/ is the Headstart package (universal-head-tracking docs/packages.md): the code
+# jar under a name with its hash in it, and cameraunlock-package.toml, which names that jar and the
+# art jars in release/assets/ by their downloads from this version's tag. release-mod.yml uploads it
+# to a tagged release and has the catalog pin it. It is not in release/assets/, which the nightly
+# uploads to the dev release, where a manifest naming the v<version> tag's files would be false.
+$headstartDir = Join-Path $releaseDir 'headstart'
+if (Test-Path $headstartDir) { Remove-Item -Recurse -Force $headstartDir }
+New-Item -ItemType Directory -Path $headstartDir -Force | Out-Null
+$codeHash = Get-Sha256 $jarPath
+$codeAsset = "$modName-$($codeHash.Substring(0, 12)).jar"
+Copy-Item -LiteralPath $jarPath -Destination (Join-Path $headstartDir $codeAsset)
+$packageFiles.Insert(0, [PSCustomObject]@{ Path = "$modName.jar"; Asset = $codeAsset; Sha256 = $codeHash; Size = (Get-Item -LiteralPath $jarPath).Length })
 $sha.Dispose()
+
+$download = "https://github.com/itsloopyo/project-zomboid-headtracking/releases/download/v$version"
+$packageToml = @(
+    'schema = 1'
+    'id = "project-zomboid-headtracking"'
+    "version = `"$version`""
+    'kind = "java-agent"'
+    'interface = 1'
+    foreach ($file in $packageFiles) {
+        ''
+        '[[file]]'
+        "path = `"$($file.Path)`""
+        "url = `"$download/$($file.Asset)`""
+        "sha256 = `"$($file.Sha256)`""
+        "size = $($file.Size)"
+    }
+    ''
+    '[java_agent]'
+    "jar = `"$modName.jar`""
+    ''
+    '[java_agent.properties]'
+    # Agent.GAME_DIRECTORY_PROPERTY: where the agent keeps CameraUnlock.ini and its log.
+    '"cameraunlock.zomboid.gameDirectory" = "{data}"'
+) -join "`n"
+[System.IO.File]::WriteAllText((Join-Path $headstartDir 'cameraunlock-package.toml'), $packageToml + "`n", (New-Object System.Text.UTF8Encoding $false))
+Write-Host "  headstart/$codeAsset, headstart/cameraunlock-package.toml ($($packageFiles.Count) files)" -ForegroundColor Green
 
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 
