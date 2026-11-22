@@ -39,10 +39,11 @@ test = { cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test
 clean = "powershell -NoProfile -Command \"Get-Item build, release -ErrorAction Ignore | Remove-Item -Recurse -Force\""
 
 # Rewrites config/CameraUnlock.ini, the committed copy of the CameraUnlock.ini the mod creates at
-# first launch, from the rows Config.java describes to cameraunlock-core, after a change to a row,
-# a comment or a default, then rewrites the per_game of a launcher-manifest.json config descriptor
-# where there is one.
-render-config = { cmd = "java --enable-native-access=ALL-UNNAMED -cp \"build/classes;build/test-classes\" com.cameraunlock.zomboid.RenderConfig config/CameraUnlock.ini && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
+# first launch, and config/cameraunlock-settings.json, the same rows as the list the Headstart
+# package ships for Headstart's settings page, from the rows Config.java describes to
+# cameraunlock-core, after a change to a row, a comment or a default, then rewrites the per_game
+# of a launcher-manifest.json config descriptor where there is one.
+render-config = { cmd = "java --enable-native-access=ALL-UNNAMED -cp \"build/classes;build/test-classes\" com.cameraunlock.zomboid.RenderConfig config/CameraUnlock.ini config/cameraunlock-settings.json && node cameraunlock-core/scripts/encode-seed.mjs", depends-on = ["build"] }
 
 # The installer ZIP, a development ZIP (the same, with the development jar in
 # it) and the Workshop ZIP in release/. package-release.ps1 says why there is

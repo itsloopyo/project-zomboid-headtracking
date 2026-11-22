@@ -11,8 +11,9 @@
 #       installer with the development jar, which has the development keys)
 # and release/assets/, the art jars under the names the launcher downloads them
 # by, ProjectZomboidHeadTracking-<folder>-<first 12 of sha256>.jar, which the
-# release uploads beside the ZIPs, and release/headstart/, the Headstart package: the code jar
-# under a name with its hash in it and the cameraunlock-package.toml that lists every jar.
+# release uploads beside the ZIPs, and release/headstart/, the Headstart package: the code jar and
+# the settings list (config/cameraunlock-settings.json), each under a name with its hash in it,
+# and the cameraunlock-package.toml that lists them and every art jar.
 #
 # There is no Nexus ZIP. Installing the mod is the jar next to the game exe
 # plus a site JVM config that install.cmd generates from the game's own
@@ -133,11 +134,14 @@ $assetRows = foreach ($jar in $artJars) {
 }
 
 # release/headstart/ is the Headstart package (universal-head-tracking docs/packages.md): the code
-# jar under a name with its hash in it, and cameraunlock-package.toml, which names that jar and the
-# art jars in release/assets/ by their downloads from this version's tag. release-mod.yml uploads it
-# to a tagged release and has the catalog pin it. It is not in release/assets/, which the nightly
-# uploads to the dev release as it is: for a dev build the nightly rewrites this manifest to name
-# the dev build's version and the dev release's files, and has the catalog list it as dev.
+# jar and the settings list under names with their hashes in them, and cameraunlock-package.toml,
+# which names them and the art jars in release/assets/ by their downloads from this version's tag.
+# The settings list is config/cameraunlock-settings.json, the rows of CameraUnlock.ini as Headstart's
+# settings page reads them, which the tests hold to the rows the code jar describes.
+# release-mod.yml uploads it to a tagged release and has the catalog pin it. It is not in
+# release/assets/, which the nightly uploads to the dev release as it is: for a dev build the
+# nightly rewrites this manifest to name the dev build's version and the dev release's files, and
+# has the catalog list it as dev.
 $headstartDir = Join-Path $releaseDir 'headstart'
 if (Test-Path $headstartDir) { Remove-Item -Recurse -Force $headstartDir }
 New-Item -ItemType Directory -Path $headstartDir -Force | Out-Null
@@ -145,6 +149,17 @@ $codeHash = Get-Sha256 $jarPath
 $codeAsset = "$modName-$($codeHash.Substring(0, 12)).jar"
 Copy-Item -LiteralPath $jarPath -Destination (Join-Path $headstartDir $codeAsset)
 $packageFiles.Insert(0, [PSCustomObject]@{ Path = "$modName.jar"; Asset = $codeAsset; Sha256 = $codeHash; Size = (Get-Item -LiteralPath $jarPath).Length })
+$settingsName = 'cameraunlock-settings.json'
+$settingsPath = Join-Path $projectDir "config/$settingsName"
+if (-not (Test-Path -LiteralPath $settingsPath)) {
+    throw "config/$settingsName not found at: $settingsPath. Run 'pixi run render-config' and commit it."
+}
+$settingsHash = Get-Sha256 $settingsPath
+$settingsAsset = "$modName-settings-$($settingsHash.Substring(0, 12)).json"
+Copy-Item -LiteralPath $settingsPath -Destination (Join-Path $headstartDir $settingsAsset)
+# The copy keeps the time of the checkout, and the nightly publish refuses a file older than its build.
+(Get-Item -LiteralPath (Join-Path $headstartDir $settingsAsset)).LastWriteTime = Get-Date
+$packageFiles.Add([PSCustomObject]@{ Path = $settingsName; Asset = $settingsAsset; Sha256 = $settingsHash; Size = (Get-Item -LiteralPath $settingsPath).Length })
 $sha.Dispose()
 
 $download = "https://github.com/itsloopyo/project-zomboid-headtracking/releases/download/v$version"
@@ -173,7 +188,7 @@ $packageToml = @(
     '"cameraunlock.zomboid.udpPort" = "{port}"'
 ) -join "`n"
 [System.IO.File]::WriteAllText((Join-Path $headstartDir 'cameraunlock-package.toml'), $packageToml + "`n", (New-Object System.Text.UTF8Encoding $false))
-Write-Host "  headstart/$codeAsset, headstart/cameraunlock-package.toml ($($packageFiles.Count) files)" -ForegroundColor Green
+Write-Host "  headstart/$codeAsset, headstart/$settingsAsset, headstart/cameraunlock-package.toml ($($packageFiles.Count) files)" -ForegroundColor Green
 
 Copy-LicenceNotices -StagingDir $staging -ProjectRoot $projectDir -Additional @('CHANGELOG.md')
 

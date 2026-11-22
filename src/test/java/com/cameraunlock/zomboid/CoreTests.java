@@ -94,7 +94,8 @@ public final class CoreTests {
 
         // In this order: most carry on from the session or the saved file the one before left.
         Checks.run("longStackTraceIsLoggedWhole", CoreTests::longStackTraceIsLoggedWhole);
-        Checks.run("committedFileIsTheRowsRendered", CoreTests::committedFileIsTheRowsRendered);
+        Checks.run("committedFilesAreTheRowsRendered", CoreTests::committedFilesAreTheRowsRendered);
+        Checks.run("theSettingsListHoldsTheFilesRowsAsHeadstartTakesThem", CoreTests::theSettingsListHoldsTheFilesRowsAsHeadstartTakesThem);
         Checks.run("firstStartCreatesTheCommittedFileAndRunsOnItsValues", CoreTests::firstStartCreatesTheCommittedFileAndRunsOnItsValues);
         Checks.run("whatTheQuickListsReadOnAFreshInstall", CoreTests::whatTheQuickListsReadOnAFreshInstall);
         Checks.run("trackerAxesBecomeThisViews", CoreTests::trackerAxesBecomeThisViews);
@@ -134,6 +135,9 @@ public final class CoreTests {
         Checks.run("firstPersonAndGraphicsModeSwitchOnTheirOtherKeysBesideViewpoint", CoreTests::firstPersonAndGraphicsModeSwitchOnTheirOtherKeysBesideViewpoint);
         Checks.tally();
     }
+
+    /** The list of the rows the Headstart package ships, in config/ beside the file it describes. */
+    private static final String SETTINGS_LIST = "cameraunlock-settings.json";
 
     private static void check(boolean held, String what) {
         Checks.check(held, what);
@@ -279,12 +283,102 @@ public final class CoreTests {
                 "an error is in the log with its whole stack trace and its cause, however long");
     }
 
-    private static void committedFileIsTheRowsRendered() throws IOException, InterruptedException {
+    private static void committedFilesAreTheRowsRendered() throws IOException, InterruptedException {
         Path rendered = scratch.resolve("rendered.ini");
+        Path listed = scratch.resolve("rendered.json");
         Ran ran = run(Path.of("").toAbsolutePath(), List.of(java(), "--enable-native-access=ALL-UNNAMED", "-cp",
-                System.getProperty("java.class.path"), RenderConfig.class.getName(), rendered.toString()));
+                System.getProperty("java.class.path"), RenderConfig.class.getName(), rendered.toString(), listed.toString()));
         check(ran.exit() == 0 && Arrays.equals(Files.readAllBytes(rendered), Files.readAllBytes(Path.of("config", Config.FILE_NAME))),
                 "config/CameraUnlock.ini is the rows' fresh render, byte for byte (pixi run render-config): " + ran.output());
+        check(ran.exit() == 0 && Arrays.equals(Files.readAllBytes(listed), Files.readAllBytes(Path.of("config", SETTINGS_LIST))),
+                "config/" + SETTINGS_LIST + " is the rows' fresh list, byte for byte (pixi run render-config): " + ran.output());
+    }
+
+    /**
+     * config/cameraunlock-settings.json, which the Headstart package ships, against config/CameraUnlock.ini and against what Headstart
+     * refuses in a list (universal-head-tracking docs/packages.md, Settings; headstart-core's package/settings.rs).
+     */
+    private static void theSettingsListHoldsTheFilesRowsAsHeadstartTakesThem() throws IOException {
+        Map<String, String> inFile = new LinkedHashMap<>();
+        String section = "";
+        for (String line : Files.readAllLines(Path.of("config", Config.FILE_NAME))) {
+            if (line.startsWith("[")) {
+                section = line.substring(1, line.length() - 1);
+            } else if (!line.isEmpty() && !line.startsWith(";")) {
+                int equals = line.indexOf('=');
+                inFile.put(section + " " + line.substring(0, equals), line.substring(equals + 1));
+            }
+        }
+        check("1".equals(inFile.remove("CameraUnlock ConfigFormat")), "the file has its format stamp, which is no row of the list");
+
+        Map<?, ?> list = (Map<?, ?>) Json.parse(Files.readString(Path.of("config", SETTINGS_LIST)));
+        check(List.copyOf(list.keySet()).equals(List.of("schema", "file", "rows")) && Double.valueOf(1).equals(list.get("schema"))
+                && Config.FILE_NAME.equals(list.get("file")), "the list is schema 1 of " + Config.FILE_NAME + ": " + list.keySet());
+        // A section, a key and an enum's word are written into the file as given: printable ASCII with no space, and none of [ ] = ; # ,
+        java.util.regex.Pattern name = java.util.regex.Pattern.compile("[!-~&&[^\\[\\]=;#,]]+");
+        Map<String, Map<?, ?>> rows = new LinkedHashMap<>();
+        Set<String> seen = new HashSet<>();
+        for (Object each : (List<?>) list.get("rows")) {
+            Map<?, ?> row = (Map<?, ?>) each;
+            String id = row.get("section") + " " + row.get("key");
+            rows.put(id, row);
+            check(seen.add(id.toLowerCase(java.util.Locale.ROOT)), id + " is listed once, whatever its case");
+            String kind = (String) row.get("kind");
+            String value = (String) row.get("default");
+            List<Object> keys = new ArrayList<>(List.of("section", "key", "label", "help", "kind", "default", "follows_defaults", "live", "writable"));
+            List<Object> names = new ArrayList<>(List.of(row.get("section"), row.get("key")));
+            boolean taken;
+            switch (kind) {
+                case "bool" -> taken = value.equals("true") || value.equals("false");
+                case "int", "float" -> {
+                    keys.addAll(List.of("min", "max"));
+                    double number = Double.parseDouble(value);
+                    double min = (Double) row.get("min");
+                    double max = (Double) row.get("max");
+                    boolean whole = min == Math.rint(min) && max == Math.rint(max) && min >= Integer.MIN_VALUE && max <= Integer.MAX_VALUE
+                            && value.matches("-?[0-9]+");
+                    taken = Double.isFinite(min) && Double.isFinite(max) && min <= number && number <= max && (kind.equals("float") || whole);
+                }
+                case "enum" -> {
+                    keys.add("choices");
+                    List<?> choices = (List<?>) row.get("choices");
+                    names.addAll(choices);
+                    Set<String> words = new HashSet<>();
+                    for (Object choice : choices) {
+                        words.add(((String) choice).toLowerCase(java.util.Locale.ROOT));
+                    }
+                    taken = choices.contains(value) && words.size() == choices.size();
+                }
+                case "text", "hotkeys" -> taken = true;
+                default -> taken = false;
+            }
+            check(taken, id + " is of a kind Headstart knows, with a default that kind takes: " + row);
+            check(List.copyOf(row.keySet()).equals(keys), id + " has the keys of its kind and no others, in order: " + row.keySet());
+            for (Object word : names) {
+                check(name.matcher((String) word).matches(), id + ": Headstart can write " + word + " into the file as a name");
+            }
+            String held = inFile.get(id);
+            check(Boolean.TRUE.equals(row.get("follows_defaults")) ? "default".equals(held) && !value.equals("default") : value.equals(held),
+                    id + " has the value a fresh file holds as its default, or follows Defaults.ini where that file holds default: " + held + ", " + row);
+        }
+        check(List.copyOf(rows.keySet()).equals(List.copyOf(inFile.keySet())), "the list has every row of the file bar the format stamp, in the file's order, and no others");
+
+        Map<?, ?> fieldOfView = rows.get("General FieldOfView");
+        check("float".equals(fieldOfView.get("kind")) && "70.0".equals(fieldOfView.get("default")) && Double.valueOf(40).equals(fieldOfView.get("min"))
+                        && Double.valueOf(110).equals(fieldOfView.get("max")) && Boolean.TRUE.equals(fieldOfView.get("live"))
+                        && Boolean.FALSE.equals(fieldOfView.get("follows_defaults")),
+                "the field of view is a float from 40 to 110, 70.0 unless set, read again while the game runs: " + fieldOfView);
+        Map<?, ?> quality = rows.get("General Quality");
+        check("enum".equals(quality.get("kind")) && List.of("Automatic", "Low", "Medium", "High", "Custom").equals(quality.get("choices"))
+                && "Automatic".equals(quality.get("default")), "the graphics mode is one of its five words, Automatic unless set: " + quality);
+        Map<?, ?> firstPersonKey = rows.get("Hotkeys FirstPersonKey");
+        check("hotkeys".equals(firstPersonKey.get("kind")) && "Delete, ScrollLock".equals(firstPersonKey.get("default")),
+                "the first person key is a list of keys, Delete and Scroll Lock unless set: " + firstPersonKey);
+        Map<?, ?> microphone = rows.get("Voice Microphone");
+        check("text".equals(microphone.get("kind")) && "Default".equals(microphone.get("default")), "the microphone is text, Default unless set: " + microphone);
+        Map<?, ?> udpPort = rows.get("Network UdpPort");
+        check("int".equals(udpPort.get("kind")) && "4242".equals(udpPort.get("default")) && Boolean.TRUE.equals(udpPort.get("follows_defaults")),
+                "the tracker's port is a whole number that follows Defaults.ini, 4242 where that gives none: " + udpPort);
     }
 
     private static void firstStartCreatesTheCommittedFileAndRunsOnItsValues() throws IOException, InterruptedException {

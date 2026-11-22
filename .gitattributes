@@ -9,6 +9,8 @@
 *.dll binary
 # The config owner creates this file byte for byte, CRLF included.
 config/CameraUnlock.ini -text
+# The Headstart package ships this file under its hash, so every checkout has the same bytes.
+config/cameraunlock-settings.json -text
 *.bc binary
 *.bin binary
 *.gz binary

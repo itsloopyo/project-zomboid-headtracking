@@ -699,6 +699,11 @@ final class Config {
         core.configRender(file);
     }
 
+    /** The rows as the JSON Headstart's settings page reads, which the build keeps as config/cameraunlock-settings.json. */
+    String schema() {
+        return core.configSchema();
+    }
+
     /**
      * Reads the file, creating it where there is none.
      *
