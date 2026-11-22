@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.2] - 2026-11-22
+
+### Added
+
+- the Headstart package ships cameraunlock-settings.json, the list of settings Headstart's settings page shows
+
 ## [0.6.1] - 2026-11-22
 
 ### Added
