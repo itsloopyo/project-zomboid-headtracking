@@ -168,6 +168,8 @@ $packageToml = @(
     '[java_agent.properties]'
     # Agent.GAME_DIRECTORY_PROPERTY: where the agent keeps CameraUnlock.ini and its log.
     '"cameraunlock.zomboid.gameDirectory" = "{data}"'
+    # Agent.UDP_PORT_PROPERTY: the port Headstart passes the first player's tracker on to.
+    '"cameraunlock.zomboid.udpPort" = "{port}"'
 ) -join "`n"
 [System.IO.File]::WriteAllText((Join-Path $headstartDir 'cameraunlock-package.toml'), $packageToml + "`n", (New-Object System.Text.UTF8Encoding $false))
 Write-Host "  headstart/$codeAsset, headstart/cameraunlock-package.toml ($($packageFiles.Count) files)" -ForegroundColor Green

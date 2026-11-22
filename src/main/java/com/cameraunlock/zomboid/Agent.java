@@ -56,6 +56,8 @@ public final class Agent {
     static final String GAME_DIRECTORY_PROPERTY = "cameraunlock.zomboid.gameDirectory";
     /** A Defaults.ini of a test's own in place of the player's, which the game never sets. */
     static final String DEFAULTS_PROPERTY = "cameraunlock.zomboid.defaults";
+    /** The first player's tracker port, each later player's the one after, in place of the [Network] rows: Headstart's {port}. */
+    static final String UDP_PORT_PROPERTY = "cameraunlock.zomboid.udpPort";
 
     /**
      * A rewrite of one method of one game class. One that adds fields or methods to the class

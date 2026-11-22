@@ -51,6 +51,8 @@ final class Tracking {
     private static final int[] ports = new int[View.COUNT];
     /** Which of the players after the first have been given their port. */
     private static final boolean[] listening = new boolean[View.COUNT];
+    /** Agent.UDP_PORT_PROPERTY's port, or 0 when the mod takes its ports from CameraUnlock.ini. */
+    private static int givenPort;
     /** A save writes a file and the watch asks for its write time, so both are kept off the game's logic thread, where the hotkeys are read. */
     static final ScheduledExecutorService saver = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "CameraUnlock-Config");
@@ -137,8 +139,15 @@ final class Tracking {
      * listening for the first player's tracker and for the hotkeys.
      */
     static void start(Path gameDirectory) {
+        String given = System.getProperty(Agent.UDP_PORT_PROPERTY);
+        givenPort = given == null ? 0 : givenPort(given);
         String defaults = System.getProperty(Agent.DEFAULTS_PROPERTY);
         int port = open(gameDirectory, defaults == null ? null : Path.of(defaults));
+        if (givenPort != 0) {
+            port = givenPort;
+            Log.info("listening for the trackers on ports " + port + " to " + (port + View.COUNT - 1) + ", one a player, as " + Agent.UDP_PORT_PROPERTY
+                    + " gives them, in place of the ports [Network] in " + Config.FILE_NAME + " names");
+        }
         ports[0] = port;
         try {
             listen(port);
@@ -243,6 +252,21 @@ final class Tracking {
         return loaded.udpPort;
     }
 
+    /** The first player's port in Agent.UDP_PORT_PROPERTY, which leaves room for every later player's after it. */
+    static int givenPort(String value) {
+        int port;
+        try {
+            port = Integer.parseInt(value);
+        } catch (NumberFormatException notANumber) {
+            throw new IllegalArgumentException(Agent.UDP_PORT_PROPERTY + "=" + value + " is not a port", notANumber);
+        }
+        if (port < 1 || port > 65536 - View.COUNT) {
+            throw new IllegalArgumentException(Agent.UDP_PORT_PROPERTY + "=" + value + " leaves no room for " + View.COUNT
+                    + " players' ports from 1 to 65535");
+        }
+        return port;
+    }
+
     /**
      * Core listens from here, and its own line in the log says whether it has the port. One
      * another program holds is tried again until it is free.
@@ -253,14 +277,14 @@ final class Tracking {
 
     /**
      * The tracker of a player after the first is listened for from the first frame the game
-     * draws them, on the port their row of [Network] names. Logic thread.
+     * draws them, on the port their row of [Network] names, or the one Agent.UDP_PORT_PROPERTY gives them. Logic thread.
      */
     static void listenFor(int playerIndex) {
         if (listening[playerIndex]) {
             return;
         }
         listening[playerIndex] = true;
-        int port = config.playerPort(playerIndex);
+        int port = givenPort != 0 ? givenPort + playerIndex : config.playerPort(playerIndex);
         for (int other = 0; other < View.COUNT; other++) {
             if (ports[other] == port) {
                 // Core refuses the port by throwing, which here would be into the game's own frame.

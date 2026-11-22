@@ -135,6 +135,7 @@ public final class Tests {
         Checks.run("aHotkeyTheGameAlsoActsOnIsSaid", Tests::aHotkeyTheGameAlsoActsOnIsSaid);
         Checks.run("viewpointsCameraLetsGoOfASaveLeft", Tests::viewpointsCameraLetsGoOfASaveLeft);
         Checks.run("headTrackingReachesTheCaptureOfEitherViewpointVersion", Tests::headTrackingReachesTheCaptureOfEitherViewpointVersion);
+        Checks.run("headstartsPortIsReadWithRoomForEveryPlayer", Tests::headstartsPortIsReadWithRoomForEveryPlayer);
         Checks.run("pointerComesOutForTheInventoryKeyAPanelAndAClickedButton", Tests::pointerComesOutForTheInventoryKeyAPanelAndAClickedButton);
         Checks.run("lootPanelFollowsTheCrosshairOncePerThing", Tests::lootPanelFollowsTheCrosshairOncePerThing);
         Checks.run("keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo", Tests::keptPanelsShowAfterThePointerFoldWhileAimingAndAreLetGo);
@@ -3281,6 +3282,20 @@ public final class Tests {
                         "SplitScreenKey 0x4B is also the game's key binding \"Display FPS\", which the game acts on whatever Shift, Ctrl or Alt is held, so a press of it does both")),
                 "a chord on B, F9 and K by its code are each said with the binding on them and the modifiers it needs, and an empty row is passed over: " + lines);
         check(Tracking.keysTheGameShares(rows, code -> null).isEmpty(), "and nothing is said where the game has no binding on them");
+    }
+
+    /** The port Headstart passes, with every player's port after it still a port, and anything else refused with the property named. */
+    private static void headstartsPortIsReadWithRoomForEveryPlayer() {
+        check(Tracking.givenPort("4300") == 4300, "a port is read as itself");
+        check(Tracking.givenPort(String.valueOf(65536 - View.COUNT)) == 65536 - View.COUNT, "the highest port that leaves the last player 65535 is taken");
+        for (String bad : new String[] {"", "x", "0", "-1", String.valueOf(65537 - View.COUNT)}) {
+            try {
+                Tracking.givenPort(bad);
+                check(false, "\"" + bad + "\" is refused");
+            } catch (IllegalArgumentException refused) {
+                check(refused.getMessage().contains(Agent.UDP_PORT_PROPERTY), "\"" + bad + "\" is refused, naming the property: " + refused.getMessage());
+            }
+        }
     }
 
     private static Tracking.GameBinding binding(String name, boolean chord) {
