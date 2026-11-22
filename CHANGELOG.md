@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.1] - 2026-11-22
+
+### Added
+
+- say in the log when a hotkey is also on one of the game's key bindings, its own or another mod's
+- the release publishes a Headstart package and has the Headstart catalog pin it
+- loaded by Headstart, the mod listens for the trackers on the port Headstart gives it
+
+### Fixed
+
+- far land no longer fails on cells with a building that reaches past the next cell, such as 28,45 and 59,11
+- hotkeys on Linux hear the mouse buttons, written as their Windows key codes 0x01, 0x02, 0x04, 0x05 and 0x06
+- the first person key comes on Delete and Scroll Lock only, as Ctrl+Shift+B also opened the game's crafting window
+
 ## [0.6.0] - 2026-11-17
 
 ### Added
