@@ -1119,7 +1119,7 @@ pixi run package
 
 ## License
 
-[MIT License](LICENSE). Third-party credits and licences are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+[MIT License](LICENSE). cameraunlock-core, built into the mod's releases, is not under it: it is copyright itsloopyo, all rights reserved, and its terms ship in each release as `licenses/cameraunlock-core-LICENSE.txt`. Third-party credits and licences are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## Credits
 
